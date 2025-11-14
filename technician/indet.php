@@ -384,10 +384,8 @@ document.addEventListener('DOMContentLoaded', function() {
 function startAutoRefresh() { autoRefreshInterval = setInterval(loadAllItems, 10000); }
 function stopAutoRefresh() { clearInterval(autoRefreshInterval); }
 function loadAllItems() {
-    // Reset counts first
-    ['pending','in_progress','completed'].forEach(status => {
-        document.getElementById(`${status.replace('_','-')}-count`).textContent = '0';
-    });
+    // Don't reset counts here - let each render function calculate the correct count
+    // This prevents flickering and ensures accurate counts
     
     // Load all items
     ['pending','in_progress','completed'].forEach(status => {
@@ -414,10 +412,11 @@ function loadTasksByStatus(status) {
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    // Remove only task cards, not service request cards
-    container.querySelectorAll('.task-card:not([data-service-request-id])').forEach(el => {
-        if (!el.closest('[data-maintenance-id]')) el.remove();
-    });
+    if (!container) return;
+    
+    // Remove only task cards, not service request cards or maintenance cards
+    container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
+    
     // Add new task cards
     tasks.forEach(task => {
         const existing = container.querySelector(`[data-task-id="${task.id}"]`);
@@ -426,9 +425,13 @@ function renderTasks(status, tasks) {
             container.insertAdjacentHTML('beforeend', taskHtml);
         }
     });
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + tasks.length;
+    
+    // Update count - count all items in the container
+    const allCards = container.querySelectorAll('.task-card');
+    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
+    if (countElement) {
+        countElement.textContent = allCards.length;
+    }
 }
 
 function createTaskElement(task) {
@@ -477,13 +480,25 @@ function loadMaintenanceByStatus(status) {
 
 function renderMaintenance(status, records) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
+    if (!container) return;
+    
     // Remove only maintenance cards
     container.querySelectorAll('[data-maintenance-id]').forEach(el => el.remove());
+    
     // Add new maintenance cards
-    records.forEach(r => container.insertAdjacentHTML('beforeend', createMaintenanceElement(r)));
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + records.length;
+    records.forEach(r => {
+        const existing = container.querySelector(`[data-maintenance-id="${r.id}"]`);
+        if (!existing) {
+            container.insertAdjacentHTML('beforeend', createMaintenanceElement(r));
+        }
+    });
+    
+    // Update count - count all items in the container
+    const allCards = container.querySelectorAll('.task-card');
+    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
+    if (countElement) {
+        countElement.textContent = allCards.length;
+    }
 }
 
 function createMaintenanceElement(record) {
@@ -584,43 +599,112 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '') {
 
 // ---------------- SERVICE REQUESTS ----------------
 function loadServiceRequestsByStatus(status) {
+    // For pending status, don't filter by technician_id so all technicians can see and accept requests
+    // For in_progress and completed, filter by technician_id to show only assigned requests
+    const requestBody = {
+        action: 'get_service_requests', 
+        status: status === 'pending' ? 'Pending' : (status === 'in_progress' ? 'In Progress' : 'Completed')
+    };
+    
+    // Only include technician_id for in_progress and completed statuses
+    if (status === 'in_progress' || status === 'completed') {
+        requestBody.technician_id = currentUserId;
+    }
+    
     fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            action: 'get_service_requests', 
-            status: status === 'pending' ? 'Pending' : (status === 'in_progress' ? 'In Progress' : 'Completed'),
-            technician_id: currentUserId
-        })
+        body: JSON.stringify(requestBody)
     })
-    .then(res => res.json())
+    .then(res => {
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        return res.json();
+    })
     .then(data => {
         if (data.success) {
+            console.log(`✅ Loaded ${data.data.length} service requests for status: ${status}`, data.data);
+            if (data.data.length > 0) {
+                console.log('Sample request:', data.data[0]);
+            }
             renderServiceRequests(status, data.data);
+        } else {
+            console.error('❌ Failed to load service requests:', data.message || 'Unknown error');
+            if (data.error) {
+                console.error('Error details:', data.error);
+            }
         }
     })
-    .catch(err => console.error('Error loading service requests:', err));
+    .catch(err => {
+        console.error('❌ Error loading service requests:', err);
+        showAlert('Error loading service requests: ' + err.message, 'danger');
+    });
 }
 
 function renderServiceRequests(status, requests) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    // Remove existing service request cards for this status
-    container.querySelectorAll('[data-service-request-id]').forEach(el => el.remove());
-    // Add new service request cards
-    requests.forEach(req => {
-        container.insertAdjacentHTML('beforeend', createServiceRequestElement(req));
+    if (!container) {
+        console.error(`Container not found for status: ${status}`);
+        return;
+    }
+    
+    console.log(`Rendering ${requests.length} service requests for status: ${status}`, requests);
+    
+    // Get incoming request IDs
+    const incomingIds = new Set(requests.map(r => String(r.id)));
+    
+    // Remove service request cards that are no longer in the incoming list
+    container.querySelectorAll('[data-service-request-id]').forEach(el => {
+        const id = el.getAttribute('data-service-request-id');
+        if (id && !incomingIds.has(id)) {
+            el.remove();
+        }
     });
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + requests.length;
+    
+    // Add new service request cards that don't exist yet
+    let addedCount = 0;
+    requests.forEach(req => {
+        const existing = container.querySelector(`[data-service-request-id="${req.id}"]`);
+        if (!existing) {
+            try {
+                const html = createServiceRequestElement(req);
+                container.insertAdjacentHTML('beforeend', html);
+                addedCount++;
+            } catch (error) {
+                console.error(`Error creating element for request ${req.id}:`, error);
+            }
+        }
+    });
+    
+    console.log(`Added ${addedCount} new service request cards`);
+    
+    // Update count - count all items in the container (tasks + maintenance + service requests)
+    const allCards = container.querySelectorAll('.task-card');
+    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
+    if (countElement) {
+        countElement.textContent = allCards.length;
+    }
 }
 
 function createServiceRequestElement(request) {
     const createdDate = new Date(request.created_at).toLocaleDateString();
     const createdTime = new Date(request.created_at).toLocaleTimeString();
     const statusClass = request.status === 'completed' ? 'completed' : '';
-    const isPending = request.status === 'pending' && !request.technician_id;
-    const isAssigned = request.technician_id && (request.status === 'pending' || request.status === 'in_progress');
+    
+    // Convert technician_id to number for comparison
+    const requestTechId = parseInt(request.technician_id) || 0;
+    const currentTechId = parseInt(currentUserId) || 0;
+    
+    // Show accept button for pending requests (even if already assigned to someone else)
+    // This allows technicians to receive/reassign requests
+    // Note: 'Assigned' status is mapped to 'pending' in the API, so it shows in pending column
+    const isPending = request.status === 'pending' && 
+                      (!requestTechId || requestTechId !== currentTechId);
+    
+    // Show action buttons if assigned to current technician and in progress
+    const isAssigned = requestTechId === currentTechId && 
+                      request.status === 'in_progress';
     const surveyCount = parseInt(request.survey_count || 0, 10) || 0;
     const surveyAverage = request.survey_average ? parseFloat(request.survey_average).toFixed(1) : null;
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;
@@ -689,7 +773,7 @@ function createServiceRequestElement(request) {
             <div class="task-actions mt-2">
                 ${isPending
                     ? `<button class="btn btn-sm btn-primary w-100" onclick="acceptServiceRequest(${request.id})">
-                           <i class="fas fa-hand-paper"></i> Accept Request
+                           <i class="fas fa-hand-paper"></i> ${requestTechId && requestTechId !== currentTechId ? 'Reassign to Me' : 'Accept Request'}
                        </button>`
                     : isAssigned
                     ? `<div class="d-grid gap-2">
@@ -702,6 +786,10 @@ function createServiceRequestElement(request) {
                            <button class="btn btn-sm btn-success" onclick="openCompleteServiceRequestModal(${request.id})">
                                <i class="fas fa-check-circle"></i> Mark Complete
                            </button>
+                       </div>`
+                    : requestTechId && requestTechId !== currentTechId
+                    ? `<div class="alert alert-warning mb-0 py-2">
+                           <i class="fas fa-info-circle"></i> Assigned to another technician
                        </div>`
                     : ''}
             </div>

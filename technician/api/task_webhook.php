@@ -231,41 +231,18 @@ try {
             $params = [];
             $types = '';
 
-            // Show all pending and assigned requests to all technicians (so they can accept/reassign)
-            // Only filter by technician for in_progress and completed statuses
+            // For pending requests, show all. For assigned/in progress/completed, show only assigned to this technician
             if ($status === 'Pending' || $status === 'pending') {
-                // Show all Pending and Assigned requests to all technicians (no technician filter)
-                // This allows all technicians to see and accept any pending/assigned request
-                $where[] = "(sr.status = 'Pending' OR sr.status = 'Assigned')";
-            } elseif ($status === 'in_progress' || $status === 'In Progress') {
-                // Show in progress requests assigned to this technician
-                if ($technician_id) {
-                    $where[] = "sr.status = 'In Progress' AND sr.technician_id = ?";
-                    $params[] = $technician_id;
-                    $types = 'i';
-                } else {
-                    $where[] = "sr.status = 'In Progress'";
-                }
-            } elseif ($status === 'completed' || $status === 'Completed') {
-                // Show completed requests assigned to this technician
-                if ($technician_id) {
-                    $where[] = "sr.status = 'Completed' AND sr.technician_id = ?";
-                    $params[] = $technician_id;
-                    $types = 'i';
-                } else {
-                    $where[] = "sr.status = 'Completed'";
-                }
-            } else {
-                // When no specific status is provided, show all relevant requests
-                // Pending/Assigned to all, In Progress/Completed only to assigned technician
-                if ($technician_id) {
-                    $where[] = "((sr.status = 'Pending' OR sr.status = 'Assigned') OR (sr.technician_id = ? AND (sr.status = 'In Progress' OR sr.status = 'Completed')))";
-                    $params[] = $technician_id;
-                    $types = 'i';
-                } else {
-                    // If no technician_id, show all non-completed requests
-                    $where[] = "(sr.status = 'Pending' OR sr.status = 'Assigned' OR sr.status = 'In Progress')";
-                }
+                $where[] = "sr.status = 'Pending'";
+            } elseif ($status && $technician_id) {
+                $where[] = "sr.status = ? AND sr.technician_id = ?";
+                $params[] = $status;
+                $params[] = $technician_id;
+                $types = 'si';
+            } elseif ($technician_id) {
+                $where[] = "(sr.technician_id = ? OR sr.status = 'Pending')";
+                $params[] = $technician_id;
+                $types = 'i';
             }
 
             $where_clause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
@@ -285,26 +262,17 @@ try {
             ";
 
             $stmt = $conn->prepare($query);
-            if (!$stmt) {
-                throw new Exception('Query preparation failed: ' . $conn->error . ' | Query: ' . $query);
-            }
-            
             if (!empty($params)) {
                 $stmt->bind_param($types, ...$params);
             }
-            
-            if (!$stmt->execute()) {
-                throw new Exception('Query execution failed: ' . $stmt->error);
-            }
-            
+            $stmt->execute();
             $result = $stmt->get_result();
 
             $requests = [];
             while ($row = $result->fetch_assoc()) {
                 // Map status to match kanban columns
-                // Keep 'Assigned' as 'pending' so it shows in pending column and can be accepted by any technician
                 if ($row['status'] === 'Assigned') {
-                    $row['status'] = 'pending'; // Keep as pending so all technicians can see and accept
+                    $row['status'] = 'in_progress';
                 } elseif ($row['status'] === 'In Progress') {
                     $row['status'] = 'in_progress';
                 } elseif ($row['status'] === 'Completed') {
@@ -315,15 +283,6 @@ try {
                 $requests[] = $row;
             }
 
-            // Ensure survey data is properly formatted
-            foreach ($requests as &$req) {
-                // Ensure survey_count is an integer
-                $req['survey_count'] = intval($req['survey_count'] ?? 0);
-                // Ensure survey_average is a float or null
-                $req['survey_average'] = $req['survey_average'] ? floatval($req['survey_average']) : null;
-            }
-            unset($req); // Break reference
-            
             $response['success'] = true;
             $response['data'] = $requests;
             break;
@@ -336,12 +295,10 @@ try {
             // Generate ICT SRF No if not exists
             $srf_no = $input['ict_srf_no'] ?? 'SRF-' . date('Y') . '-' . str_pad($input['request_id'], 5, '0', STR_PAD_LEFT);
 
-            // Allow accepting/reassigning requests that are Pending or Assigned
-            // This allows technicians to receive requests again even if already assigned
             $stmt = $conn->prepare("
                 UPDATE service_requests 
                 SET technician_id = ?, ict_srf_no = ?, status = 'In Progress', updated_at = NOW() 
-                WHERE id = ? AND (status = 'Pending' OR status = 'Assigned')
+                WHERE id = ? AND status = 'Pending'
             ");
             $stmt->bind_param("isi", $input['technician_id'], $srf_no, $input['request_id']);
 
@@ -350,75 +307,11 @@ try {
                     $response['success'] = true;
                     $response['message'] = 'Service request accepted successfully';
                 } else {
-                    throw new Exception('Request not found or cannot be reassigned (may be in progress or completed)');
+                    throw new Exception('Request not found or already assigned');
                 }
             } else {
                 throw new Exception('Failed to accept request: ' . $stmt->error);
             }
-            break;
-
-        case 'get_service_ratings':
-            if (!isset($input['request_id'])) {
-                throw new Exception('Request ID is required');
-            }
-
-            $query = "
-                SELECT 
-                    ss.*,
-                    u.full_name AS rater_name,
-                    u.email AS rater_email,
-                    sr.equipment,
-                    sr.client_name,
-                    sr.office
-                FROM service_surveys ss
-                LEFT JOIN users u ON ss.user_id = u.id
-                LEFT JOIN service_requests sr ON ss.service_request_id = sr.id
-                WHERE ss.service_request_id = ?
-                ORDER BY ss.submitted_at DESC
-            ";
-
-            $stmt = $conn->prepare($query);
-            $stmt->bind_param("i", $input['request_id']);
-            $stmt->execute();
-            $result = $stmt->get_result();
-
-            $ratings = [];
-            $summary = [
-                'total_ratings' => 0,
-                'avg_response' => 0,
-                'avg_quality' => 0,
-                'avg_courtesy' => 0,
-                'avg_overall' => 0,
-                'avg_total' => 0
-            ];
-
-            $totalResponse = 0;
-            $totalQuality = 0;
-            $totalCourtesy = 0;
-            $totalOverall = 0;
-
-            while ($row = $result->fetch_assoc()) {
-                $ratings[] = $row;
-                $summary['total_ratings']++;
-                $totalResponse += $row['eval_response'];
-                $totalQuality += $row['eval_quality'];
-                $totalCourtesy += $row['eval_courtesy'];
-                $totalOverall += $row['eval_overall'];
-            }
-
-            if ($summary['total_ratings'] > 0) {
-                $summary['avg_response'] = round($totalResponse / $summary['total_ratings'], 2);
-                $summary['avg_quality'] = round($totalQuality / $summary['total_ratings'], 2);
-                $summary['avg_courtesy'] = round($totalCourtesy / $summary['total_ratings'], 2);
-                $summary['avg_overall'] = round($totalOverall / $summary['total_ratings'], 2);
-                $summary['avg_total'] = round(($summary['avg_response'] + $summary['avg_quality'] + $summary['avg_courtesy'] + $summary['avg_overall']) / 4, 2);
-            }
-
-            $response['success'] = true;
-            $response['data'] = [
-                'ratings' => $ratings,
-                'summary' => $summary
-            ];
             break;
 
         case 'update_service_request':
@@ -530,3 +423,5 @@ try {
 }
 
 echo json_encode($response);
+
+

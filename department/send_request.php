@@ -23,58 +23,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $requirements = $_POST['requirements'] ?? '';
         $location = $_POST['location'] ?? '';
         $date_time_call = $_POST['date_time_call'] ?? date('Y-m-d H:i:s');
-        $ict_srf_no = $_POST['ict_srf_no'] ?? '';
-        $technician_id = !empty($_POST['technician']) ? intval($_POST['technician']) : null;
-        $response_time = $_POST['response_time'] ?? null;
-        $signature = $_POST['signature'] ?? null;
 
-        if (empty($client_name) || empty($equipment) || empty($requirements) || empty($ict_srf_no)) {
+        if (empty($client_name) || empty($equipment) || empty($requirements)) {
             echo "⚠️ Please fill in all required fields.";
             exit;
         }
 
-        // Check if signature table exists, if not create it
-        $createSignatureTableQuery = "CREATE TABLE IF NOT EXISTS `service_request_signatures` (
-            `id` int(11) NOT NULL AUTO_INCREMENT,
-            `service_request_id` int(11) NOT NULL,
-            `signature_data` longtext NOT NULL,
-            `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-            PRIMARY KEY (`id`),
-            KEY `service_request_id` (`service_request_id`)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
-        $conn->query($createSignatureTableQuery);
-
-        $stmt = $conn->prepare("INSERT INTO service_requests (user_id, campus, client_name, office, equipment, requirements, location, date_time_call, ict_srf_no, technician_id, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())");
+        $stmt = $conn->prepare("INSERT INTO service_requests (user_id, campus, client_name, office, equipment, requirements, location, date_time_call, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())");
         
         if (!$stmt) {
             echo "❌ Error preparing statement: " . $conn->error;
             exit;
         }
         
-        $stmt->bind_param("issssssssi", $user_id, $campus, $client_name, $office, $equipment, $requirements, $location, $date_time_call, $ict_srf_no, $technician_id);
+        $stmt->bind_param("isssssss", $user_id, $campus, $client_name, $office, $equipment, $requirements, $location, $date_time_call);
 
         if ($stmt->execute()) {
             $requestId = $conn->insert_id;
-            
-            // Save signature if provided
-            if ($signature) {
-                $sigStmt = $conn->prepare("INSERT INTO service_request_signatures (service_request_id, signature_data) VALUES (?, ?)");
-                $sigStmt->bind_param("is", $requestId, $signature);
-                $sigStmt->execute();
-                $sigStmt->close();
-            }
-            
-            // Update response_time if provided (assuming there's a column for it, or store in a separate table)
-            // For now, we'll store it in a JSON field or notes if the column doesn't exist
-            if ($response_time) {
-                // Try to update response_time if column exists
-                $updateTimeStmt = $conn->prepare("UPDATE service_requests SET processing_time = ? WHERE id = ?");
-                if ($updateTimeStmt) {
-                    $updateTimeStmt->bind_param("si", $response_time, $requestId);
-                    $updateTimeStmt->execute();
-                    $updateTimeStmt->close();
-                }
-            }
             
             // Get user details for notification
             $userQuery = "SELECT full_name, email FROM users WHERE id = ?";
@@ -88,14 +53,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Send notification to technicians/admins
             if ($user) {
                 notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
-            }
-            
-            // If technician is assigned, update status to 'Assigned'
-            if ($technician_id) {
-                $updateStmt = $conn->prepare("UPDATE service_requests SET status = 'Assigned' WHERE id = ?");
-                $updateStmt->bind_param("i", $requestId);
-                $updateStmt->execute();
-                $updateStmt->close();
             }
             
             echo "✅ Service request has been submitted successfully. A technician will receive your request shortly.";

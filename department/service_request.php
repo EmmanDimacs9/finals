@@ -46,44 +46,6 @@ $locations = [];
 while ($row = $locationsResult->fetch_assoc()) {
     $locations[] = $row['loc'];
 }
-
-// Fetch technicians/staff
-$techniciansQuery = "SELECT id, full_name FROM users WHERE role = 'technician' ORDER BY full_name ASC";
-$techniciansResult = $conn->query($techniciansQuery);
-$technicians = [];
-while ($row = $techniciansResult->fetch_assoc()) {
-    $technicians[] = $row;
-}
-
-// Equipment categories list
-$equipmentCategories = [
-    'Desktop',
-    'Laptop',
-    'Printer',
-    'Access Point',
-    'Switch',
-    'Telephone',
-    'Network Connection',
-    'Other'
-];
-
-// Generate ICT SRF No (format: YYYY-XXXXX)
-$currentYear = date('Y');
-$srfQuery = "SELECT MAX(CAST(SUBSTRING_INDEX(ict_srf_no, '-', -1) AS UNSIGNED)) as max_num 
-             FROM service_requests 
-             WHERE ict_srf_no LIKE ?";
-$stmt = $conn->prepare($srfQuery);
-$yearPattern = $currentYear . '-%';
-$stmt->bind_param("s", $yearPattern);
-$stmt->execute();
-$srfResult = $stmt->get_result();
-$maxNum = 0;
-if ($srfRow = $srfResult->fetch_assoc()) {
-    $maxNum = $srfRow['max_num'] ?? 0;
-}
-$nextSrfNum = str_pad($maxNum + 1, 5, '0', STR_PAD_LEFT);
-$ictSrfNo = $currentYear . '-' . $nextSrfNum;
-$stmt->close();
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -169,7 +131,7 @@ $stmt->close();
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><i class="fas fa-desktop"></i> ICT Service Request Form</h2>
                 <div class="d-flex gap-2">
-                    <button form="serviceRequestForm" type="button" class="btn btn-danger" id="generatePdfBtn"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                    <button form="serviceRequestForm" type="submit" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Generate PDF</button>
                     <button form="serviceRequestForm" type="button" class="btn btn-warning sendRequestBtn" data-form="ICT Service Request Form"><i class="fas fa-paper-plane"></i> Send Request</button>
                 </div>
             </div>
@@ -187,26 +149,8 @@ $stmt->close();
                                 <input type="text" name="campus" class="form-control" value="Batangas State University - Lipa Campus" readonly required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label class="form-label">ICT SRF No.</label>
-                                <input type="text" name="ict_srf_no" id="ict_srf_no" class="form-control" value="<?= htmlspecialchars($ictSrfNo) ?>" readonly required>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
                                 <label class="form-label">Client's Name</label>
                                 <input type="text" name="client_name" class="form-control" value="<?= htmlspecialchars($_SESSION['user_name'] ?? '') ?>" readonly required>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Technician Assigned</label>
-                                <select name="technician" id="technician_select" class="form-select" required>
-                                    <option value="">Select Technician/Staff</option>
-                                    <?php foreach ($technicians as $tech): ?>
-                                        <option value="<?= htmlspecialchars($tech['id']) ?>" data-name="<?= htmlspecialchars($tech['full_name']) ?>">
-                                            <?= htmlspecialchars($tech['full_name']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </select>
                             </div>
                         </div>
 
@@ -222,52 +166,13 @@ $stmt->close();
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Date/Time of Request</label>
-                                <input type="datetime-local" name="date_time_call" id="date_time_call" class="form-control" value="<?= date('Y-m-d\TH:i') ?>" required>
-                            </div>
-                        </div>
-
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Required Response Time</label>
-                                <select name="response_time" id="response_time" class="form-select" required>
-                                    <option value="">Select Response Time</option>
-                                    <option value="5 minutes">5 minutes</option>
-                                    <option value="10 minutes">10 minutes</option>
-                                    <option value="15 minutes">15 minutes</option>
-                                    <option value="30 minutes">30 minutes</option>
-                                    <option value="1 hour">1 hour</option>
-                                    <option value="2 hours">2 hours</option>
-                                    <option value="4 hours">4 hours</option>
-                                    <option value="8 hours">8 hours</option>
-                                </select>
-                                <small class="text-muted">Select the required response time for this service request</small>
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Signature</label>
-                                <div class="border rounded p-2 bg-light">
-                                    <canvas id="signatureCanvas" style="width: 100%; height: 150px; cursor: crosshair; border: 1px solid #ddd; background: white;"></canvas>
-                                    <div class="mt-2 d-flex gap-2">
-                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="clearSignatureBtn">
-                                            <i class="fas fa-eraser"></i> Clear
-                                        </button>
-                                        <small class="text-muted align-self-center ms-auto">Draw your signature above</small>
-                                    </div>
-                                </div>
-                                <input type="hidden" name="signature" id="signatureData">
+                                <input type="datetime-local" name="date_time_call" class="form-control" value="<?= date('Y-m-d\TH:i') ?>" required>
                             </div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label">Equipment/Item Concern</label>
-                            <select name="equipment" class="form-select" required>
-                                <option value="">Select Equipment Category</option>
-                                <?php foreach ($equipmentCategories as $category): ?>
-                                    <option value="<?= htmlspecialchars($category) ?>">
-                                        <?= htmlspecialchars($category) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <small class="text-muted">Select the equipment category</small>
+                            <input type="text" name="equipment" class="form-control" placeholder="e.g., Desktop PC, Printer, Network Connection" required>
                         </div>
 
                         <div class="mb-3">
@@ -285,6 +190,9 @@ $stmt->close();
                             </select>
                         </div>
 
+                        <input type="hidden" name="technician" value="">
+                        <input type="hidden" name="ict_srf_no" value="">
+                        <input type="hidden" name="response_time" value="">
                         <input type="hidden" name="accomplishment" value="">
                         <input type="hidden" name="remarks" value="">
                     </form>
@@ -295,7 +203,6 @@ $stmt->close();
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.0/dist/signature_pad.umd.min.js"></script>
 <script>
 document.addEventListener('click', function(e) {
     const logoutLink = e.target.closest('a[href="../logout.php"]');
@@ -308,64 +215,6 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('serviceRequestForm');
-    
-    // Initialize Signature Pad
-    const canvas = document.getElementById('signatureCanvas');
-    const signaturePad = new SignaturePad(canvas, {
-        backgroundColor: 'rgb(255, 255, 255)',
-        penColor: 'rgb(0, 0, 0)'
-    });
-    
-    // Adjust canvas size
-    function resizeCanvas() {
-        const ratio = Math.max(window.devicePixelRatio || 1, 1);
-        canvas.width = canvas.offsetWidth * ratio;
-        canvas.height = canvas.offsetHeight * ratio;
-        canvas.getContext('2d').scale(ratio, ratio);
-        signaturePad.clear();
-    }
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    // Clear signature button
-    document.getElementById('clearSignatureBtn').addEventListener('click', function() {
-        signaturePad.clear();
-    });
-    
-
-    // Handle PDF Generation
-    document.getElementById('generatePdfBtn').addEventListener('click', function() {
-        const form = document.getElementById('serviceRequestForm');
-        
-        if (!form.checkValidity()) {
-            form.reportValidity();
-            return;
-        }
-        
-        // Save signature to hidden input if not already saved
-        if (signaturePad && !signaturePad.isEmpty()) {
-            document.getElementById('signatureData').value = signaturePad.toDataURL();
-        }
-        
-        // Get technician name for PDF
-        const technicianSelect = document.getElementById('technician_select');
-        const technicianName = technicianSelect.options[technicianSelect.selectedIndex]?.dataset.name || '';
-        if (technicianName) {
-            // Add technician name to form for PDF generation
-            let techNameInput = document.getElementById('technician_name_input');
-            if (!techNameInput) {
-                techNameInput = document.createElement('input');
-                techNameInput.type = 'hidden';
-                techNameInput.name = 'technician_name';
-                techNameInput.id = 'technician_name_input';
-                form.appendChild(techNameInput);
-            }
-            techNameInput.value = technicianName;
-        }
-        
-        // Submit form to generate PDF
-        form.submit();
-    });
 
     document.querySelectorAll('.sendRequestBtn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -375,28 +224,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!form.checkValidity()) {
                 form.reportValidity();
                 return;
-            }
-            
-            // Check if signature is provided
-            if (signaturePad.isEmpty()) {
-                alert('⚠️ Please provide your signature');
-                return;
-            }
-            
-            // Save signature to hidden input
-            document.getElementById('signatureData').value = signaturePad.toDataURL();
-            
-            
-            // Get technician name for PDF
-            const technicianSelect = document.getElementById('technician_select');
-            const technicianName = technicianSelect.options[technicianSelect.selectedIndex]?.dataset.name || '';
-            if (technicianName) {
-                // Add technician name to form for PDF generation
-                const techNameInput = document.createElement('input');
-                techNameInput.type = 'hidden';
-                techNameInput.name = 'technician_name';
-                techNameInput.value = technicianName;
-                form.appendChild(techNameInput);
             }
 
             const formData = new FormData(form);
@@ -411,7 +238,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(data);
                 if (data.includes('✅')) {
                     form.reset();
-                    signaturePad.clear();
                 }
             })
             .catch(error => {

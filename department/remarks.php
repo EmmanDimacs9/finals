@@ -5,10 +5,7 @@ require_once '../includes/logs.php';
 
 requireLogin();
 
-// Get current logged-in user ID
-$user_id = $_SESSION['user_id'] ?? 0;
-
-// Fetch service requests with remarks - only for the current logged-in department admin
+// Fetch service requests with remarks
 $remarksQuery = "
     SELECT 
         sr.id,
@@ -23,18 +20,14 @@ $remarksQuery = "
         u.full_name as technician_name
     FROM service_requests sr
     LEFT JOIN users u ON sr.technician_id = u.id
-    WHERE sr.remarks IS NOT NULL AND sr.remarks != '' AND sr.user_id = ?
+    WHERE sr.remarks IS NOT NULL AND sr.remarks != ''
     ORDER BY sr.completed_at DESC, sr.created_at DESC
 ";
-$stmt = $conn->prepare($remarksQuery);
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$remarksResult = $stmt->get_result();
+$remarksResult = $conn->query($remarksQuery);
 $remarks = [];
 while ($row = $remarksResult->fetch_assoc()) {
     $remarks[] = $row;
 }
-$stmt->close();
 
 // Include forms
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';

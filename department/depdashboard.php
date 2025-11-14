@@ -6,9 +6,6 @@ require_once '../includes/logs.php';
 // ✅ Ensure user is logged in
 requireLogin();
 
-$user_id = $_SESSION['user_id'] ?? 0;
-$user_name = $_SESSION['user_name'] ?? 'User';
-
 // ✅ Ensure the requests table exists
 $createTableQuery = "CREATE TABLE IF NOT EXISTS `requests` (
     `id` int(11) NOT NULL AUTO_INCREMENT,
@@ -25,92 +22,39 @@ $createTableQuery = "CREATE TABLE IF NOT EXISTS `requests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
 $conn->query($createTableQuery);
 
-// ✅ Personalized Stats - Service Requests (from service_requests table)
-$stmt = $conn->prepare("SELECT COUNT(*) AS count FROM service_requests WHERE user_id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$totalServiceRequests = $stmt->get_result()->fetch_assoc()['count'] ?? 0;
-$stmt->close();
-
-$stmt = $conn->prepare("SELECT COUNT(*) AS count FROM service_requests WHERE user_id = ? AND status='Pending'");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$pendingServiceRequests = $stmt->get_result()->fetch_assoc()['count'] ?? 0;
-$stmt->close();
-
-$stmt = $conn->prepare("SELECT COUNT(*) AS count FROM service_requests WHERE user_id = ? AND (status='In Progress' OR status='Assigned')");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$inProgressServiceRequests = $stmt->get_result()->fetch_assoc()['count'] ?? 0;
-$stmt->close();
-
-$stmt = $conn->prepare("SELECT COUNT(*) AS count FROM service_requests WHERE user_id = ? AND status='Completed'");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$completedServiceRequests = $stmt->get_result()->fetch_assoc()['count'] ?? 0;
-$stmt->close();
-
-// ✅ All Activity Logs (showing all activities from all offices/departments)
-$stmt = $conn->prepare("SELECT COUNT(*) AS count FROM logs");
-$stmt->execute();
-$activityLogs = $stmt->get_result()->fetch_assoc()['count'] ?? 0;
-$stmt->close();
+// ✅ Stats
+$totalRequests = $conn->query("SELECT COUNT(*) AS count FROM requests")->fetch_assoc()['count'] ?? 0;
+$pendingRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Pending'")->fetch_assoc()['count'] ?? 0;
+$completedRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Approved'")->fetch_assoc()['count'] ?? 0;
+$activityLogs = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
 
 // ✅ Date Filter (for Analytics)
 $startDate = $_GET['start_date'] ?? '';
 $endDate = $_GET['end_date'] ?? '';
+$dateCondition = '';
 
-// ✅ Analytics Query with Date Filter (Personalized) - Service Requests Only
 if (!empty($startDate) && !empty($endDate)) {
-    $stmt = $conn->prepare("SELECT 
-                           'Service Request' as form_type,
-                           COUNT(*) as count, 
-                           SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as approved_count,
-                           SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
-                           SUM(CASE WHEN status = 'In Progress' OR status = 'Assigned' THEN 1 ELSE 0 END) as rejected_count
-                           FROM service_requests 
-                           WHERE user_id = ? AND DATE(created_at) BETWEEN ? AND ?");
-    $stmt->bind_param("iss", $user_id, $startDate, $endDate);
+    $dateCondition = "WHERE DATE(created_at) BETWEEN '$startDate' AND '$endDate'";
 } elseif (!empty($startDate)) {
-    $stmt = $conn->prepare("SELECT 
-                           'Service Request' as form_type,
-                           COUNT(*) as count, 
-                           SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as approved_count,
-                           SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
-                           SUM(CASE WHEN status = 'In Progress' OR status = 'Assigned' THEN 1 ELSE 0 END) as rejected_count
-                           FROM service_requests 
-                           WHERE user_id = ? AND DATE(created_at) >= ?");
-    $stmt->bind_param("is", $user_id, $startDate);
+    $dateCondition = "WHERE DATE(created_at) >= '$startDate'";
 } elseif (!empty($endDate)) {
-    $stmt = $conn->prepare("SELECT 
-                           'Service Request' as form_type,
-                           COUNT(*) as count, 
-                           SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as approved_count,
-                           SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
-                           SUM(CASE WHEN status = 'In Progress' OR status = 'Assigned' THEN 1 ELSE 0 END) as rejected_count
-                           FROM service_requests 
-                           WHERE user_id = ? AND DATE(created_at) <= ?");
-    $stmt->bind_param("is", $user_id, $endDate);
-} else {
-    $stmt = $conn->prepare("SELECT 
-                           'Service Request' as form_type,
-                           COUNT(*) as count, 
-                           SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as approved_count,
-                           SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
-                           SUM(CASE WHEN status = 'In Progress' OR status = 'Assigned' THEN 1 ELSE 0 END) as rejected_count
-                           FROM service_requests 
-                           WHERE user_id = ?");
-    $stmt->bind_param("i", $user_id);
+    $dateCondition = "WHERE DATE(created_at) <= '$endDate'";
 }
-$stmt->execute();
-$analyticsResult = $stmt->get_result();
+
+// ✅ Analytics Query with Date Filter
+$analyticsQuery = "SELECT form_type, COUNT(*) as count, 
+                   SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
+                   SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
+                   SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected_count
+                   FROM requests 
+                   $dateCondition
+                   GROUP BY form_type 
+                   ORDER BY count DESC";
+$analyticsResult = $conn->query($analyticsQuery);
 $formAnalytics = [];
 while ($row = $analyticsResult->fetch_assoc()) {
-    if ($row['count'] > 0) {
-        $formAnalytics[] = $row;
-    }
+    $formAnalytics[] = $row;
 }
-$stmt->close();
 
 // ✅ Include forms
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';
@@ -201,69 +145,14 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
 
         <!-- Main Content -->
         <div class="col-md-9 col-lg-10 p-4">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h2 class="mb-1"><i class="fas fa-tachometer-alt"></i> My Dashboard</h2>
-                    <p class="text-muted mb-0"><i class="fas fa-user"></i> Welcome, <?= htmlspecialchars($user_name) ?></p>
-                </div>
-            </div>
+            <h2 class="mb-4"><i class="fas fa-tachometer-alt"></i> Department Dashboard</h2>
 
-            <!-- Service Request Stats -->
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0"><i class="fas fa-desktop"></i> Service Requests</h5>
-                </div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-3">
-                            <div class="card stats-card text-primary border-primary">
-                                <i class="fas fa-clipboard-list"></i>
-                                <h5>Total Service Requests</h5>
-                                <h3><?= $totalServiceRequests ?></h3>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card stats-card text-warning border-warning">
-                                <i class="fas fa-hourglass-half"></i>
-                                <h5>Pending</h5>
-                                <h3><?= $pendingServiceRequests ?></h3>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card stats-card text-info border-info">
-                                <i class="fas fa-cogs"></i>
-                                <h5>In Progress</h5>
-                                <h3><?= $inProgressServiceRequests ?></h3>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="card stats-card text-success border-success">
-                                <i class="fas fa-check-circle"></i>
-                                <h5>Completed</h5>
-                                <h3><?= $completedServiceRequests ?></h3>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Additional Stats -->
+            <!-- Stats -->
             <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <div class="card stats-card text-info border-info">
-                        <i class="fas fa-history"></i>
-                        <h5>All Activity Logs</h5>
-                        <h3><?= $activityLogs ?></h3>
-                        <small class="text-muted">From all offices/departments</small>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card stats-card text-secondary border-secondary">
-                        <i class="fas fa-chart-line"></i>
-                        <h5>Total Service Requests</h5>
-                        <h3><?= $totalServiceRequests ?></h3>
-                    </div>
-                </div>
+                <div class="col-md-3"><div class="card stats-card text-primary"><i class="fas fa-clipboard-list"></i><h5>Total Requests</h5><h3><?= $totalRequests ?></h3></div></div>
+                <div class="col-md-3"><div class="card stats-card text-warning"><i class="fas fa-hourglass-half"></i><h5>Pending Requests</h5><h3><?= $pendingRequests ?></h3></div></div>
+                <div class="col-md-3"><div class="card stats-card text-success"><i class="fas fa-check-circle"></i><h5>Completed Requests</h5><h3><?= $completedRequests ?></h3></div></div>
+                <div class="col-md-3"><div class="card stats-card text-danger"><i class="fas fa-file-alt"></i><h5>Activity Logs</h5><h3><?= $activityLogs ?></h3></div></div>
             </div>
 
             <!-- Analytics Section -->
@@ -324,41 +213,44 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                         <div class="card-body">
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span><i class="fas fa-check-circle text-success"></i> Completed</span>
-                                    <strong><?= $completedServiceRequests ?></strong>
+                                    <span><i class="fas fa-check-circle text-success"></i> Approved</span>
+                                    <strong><?= $completedRequests ?></strong>
                                 </div>
-                                <?php $completedPercentage = $totalServiceRequests > 0 ? ($completedServiceRequests / $totalServiceRequests) * 100 : 0; ?>
+                                <?php $approvedPercentage = $totalRequests > 0 ? ($completedRequests / $totalRequests) * 100 : 0; ?>
                                 <div class="progress">
-                                    <div class="progress-bar bg-success" style="width: <?= $completedPercentage ?>%"></div>
+                                    <div class="progress-bar bg-success" style="width: <?= $approvedPercentage ?>%"></div>
                                 </div>
                             </div>
 
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <span><i class="fas fa-hourglass-half text-warning"></i> Pending</span>
-                                    <strong><?= $pendingServiceRequests ?></strong>
+                                    <strong><?= $pendingRequests ?></strong>
                                 </div>
-                                <?php $pendingPercentage = $totalServiceRequests > 0 ? ($pendingServiceRequests / $totalServiceRequests) * 100 : 0; ?>
+                                <?php $pendingPercentage = $totalRequests > 0 ? ($pendingRequests / $totalRequests) * 100 : 0; ?>
                                 <div class="progress">
                                     <div class="progress-bar bg-warning" style="width: <?= $pendingPercentage ?>%"></div>
                                 </div>
                             </div>
 
+                            <?php 
+                            $rejectedRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Rejected'")->fetch_assoc()['count'] ?? 0;
+                            ?>
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span><i class="fas fa-cogs text-info"></i> In Progress</span>
-                                    <strong><?= $inProgressServiceRequests ?></strong>
+                                    <span><i class="fas fa-times-circle text-danger"></i> Rejected</span>
+                                    <strong><?= $rejectedRequests ?></strong>
                                 </div>
-                                <?php $inProgressPercentage = $totalServiceRequests > 0 ? ($inProgressServiceRequests / $totalServiceRequests) * 100 : 0; ?>
+                                <?php $rejectedPercentage = $totalRequests > 0 ? ($rejectedRequests / $totalRequests) * 100 : 0; ?>
                                 <div class="progress">
-                                    <div class="progress-bar bg-info" style="width: <?= $inProgressPercentage ?>%"></div>
+                                    <div class="progress-bar bg-danger" style="width: <?= $rejectedPercentage ?>%"></div>
                                 </div>
                             </div>
 
                             <hr>
                             <div class="text-center">
-                                <h3 class="text-primary"><?= $totalServiceRequests ?></h3>
-                                <p class="text-muted mb-0">Total Service Requests</p>
+                                <h3 class="text-primary"><?= $totalRequests ?></h3>
+                                <p class="text-muted mb-0">Total Requests</p>
                             </div>
                         </div>
                         </div>

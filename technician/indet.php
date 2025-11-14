@@ -234,28 +234,6 @@ require_once 'header.php';
   </div>
 </div>
 
-<!-- View Ratings Modal -->
-<div class="modal fade" id="viewRatingsModal" tabindex="-1">
-  <div class="modal-dialog modal-xl">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title"><i class="fas fa-star"></i> Service Ratings & Feedback</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="ratingsContent">
-          <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-              <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2">Loading ratings...</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <script>
 let autoRefreshInterval;
 let currentUserId = <?php echo $user_id; ?>;
@@ -384,8 +362,10 @@ document.addEventListener('DOMContentLoaded', function() {
 function startAutoRefresh() { autoRefreshInterval = setInterval(loadAllItems, 10000); }
 function stopAutoRefresh() { clearInterval(autoRefreshInterval); }
 function loadAllItems() {
-    // Don't reset counts here - let each render function calculate the correct count
-    // This prevents flickering and ensures accurate counts
+    // Reset counts first
+    ['pending','in_progress','completed'].forEach(status => {
+        document.getElementById(`${status.replace('_','-')}-count`).textContent = '0';
+    });
     
     // Load all items
     ['pending','in_progress','completed'].forEach(status => {
@@ -412,11 +392,10 @@ function loadTasksByStatus(status) {
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    if (!container) return;
-    
-    // Remove only task cards, not service request cards or maintenance cards
-    container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
-    
+    // Remove only task cards, not service request cards
+    container.querySelectorAll('.task-card:not([data-service-request-id])').forEach(el => {
+        if (!el.closest('[data-maintenance-id]')) el.remove();
+    });
     // Add new task cards
     tasks.forEach(task => {
         const existing = container.querySelector(`[data-task-id="${task.id}"]`);
@@ -425,13 +404,9 @@ function renderTasks(status, tasks) {
             container.insertAdjacentHTML('beforeend', taskHtml);
         }
     });
-    
-    // Update count - count all items in the container
-    const allCards = container.querySelectorAll('.task-card');
-    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
-    if (countElement) {
-        countElement.textContent = allCards.length;
-    }
+    // Update count
+    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
+    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + tasks.length;
 }
 
 function createTaskElement(task) {
@@ -480,25 +455,13 @@ function loadMaintenanceByStatus(status) {
 
 function renderMaintenance(status, records) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    if (!container) return;
-    
     // Remove only maintenance cards
     container.querySelectorAll('[data-maintenance-id]').forEach(el => el.remove());
-    
     // Add new maintenance cards
-    records.forEach(r => {
-        const existing = container.querySelector(`[data-maintenance-id="${r.id}"]`);
-        if (!existing) {
-            container.insertAdjacentHTML('beforeend', createMaintenanceElement(r));
-        }
-    });
-    
-    // Update count - count all items in the container
-    const allCards = container.querySelectorAll('.task-card');
-    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
-    if (countElement) {
-        countElement.textContent = allCards.length;
-    }
+    records.forEach(r => container.insertAdjacentHTML('beforeend', createMaintenanceElement(r)));
+    // Update count
+    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
+    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + records.length;
 }
 
 function createMaintenanceElement(record) {
@@ -599,112 +562,43 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '') {
 
 // ---------------- SERVICE REQUESTS ----------------
 function loadServiceRequestsByStatus(status) {
-    // For pending status, don't filter by technician_id so all technicians can see and accept requests
-    // For in_progress and completed, filter by technician_id to show only assigned requests
-    const requestBody = {
-        action: 'get_service_requests', 
-        status: status === 'pending' ? 'Pending' : (status === 'in_progress' ? 'In Progress' : 'Completed')
-    };
-    
-    // Only include technician_id for in_progress and completed statuses
-    if (status === 'in_progress' || status === 'completed') {
-        requestBody.technician_id = currentUserId;
-    }
-    
     fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+            action: 'get_service_requests', 
+            status: status === 'pending' ? 'Pending' : (status === 'in_progress' ? 'In Progress' : 'Completed'),
+            technician_id: currentUserId
+        })
     })
-    .then(res => {
-        if (!res.ok) {
-            throw new Error(`HTTP error! status: ${res.status}`);
-        }
-        return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
         if (data.success) {
-            console.log(`✅ Loaded ${data.data.length} service requests for status: ${status}`, data.data);
-            if (data.data.length > 0) {
-                console.log('Sample request:', data.data[0]);
-            }
             renderServiceRequests(status, data.data);
-        } else {
-            console.error('❌ Failed to load service requests:', data.message || 'Unknown error');
-            if (data.error) {
-                console.error('Error details:', data.error);
-            }
         }
     })
-    .catch(err => {
-        console.error('❌ Error loading service requests:', err);
-        showAlert('Error loading service requests: ' + err.message, 'danger');
-    });
+    .catch(err => console.error('Error loading service requests:', err));
 }
 
 function renderServiceRequests(status, requests) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    if (!container) {
-        console.error(`Container not found for status: ${status}`);
-        return;
-    }
-    
-    console.log(`Rendering ${requests.length} service requests for status: ${status}`, requests);
-    
-    // Get incoming request IDs
-    const incomingIds = new Set(requests.map(r => String(r.id)));
-    
-    // Remove service request cards that are no longer in the incoming list
-    container.querySelectorAll('[data-service-request-id]').forEach(el => {
-        const id = el.getAttribute('data-service-request-id');
-        if (id && !incomingIds.has(id)) {
-            el.remove();
-        }
-    });
-    
-    // Add new service request cards that don't exist yet
-    let addedCount = 0;
+    // Remove existing service request cards for this status
+    container.querySelectorAll('[data-service-request-id]').forEach(el => el.remove());
+    // Add new service request cards
     requests.forEach(req => {
-        const existing = container.querySelector(`[data-service-request-id="${req.id}"]`);
-        if (!existing) {
-            try {
-                const html = createServiceRequestElement(req);
-                container.insertAdjacentHTML('beforeend', html);
-                addedCount++;
-            } catch (error) {
-                console.error(`Error creating element for request ${req.id}:`, error);
-            }
-        }
+        container.insertAdjacentHTML('beforeend', createServiceRequestElement(req));
     });
-    
-    console.log(`Added ${addedCount} new service request cards`);
-    
-    // Update count - count all items in the container (tasks + maintenance + service requests)
-    const allCards = container.querySelectorAll('.task-card');
-    const countElement = document.getElementById(`${status.replace('_','-')}-count`);
-    if (countElement) {
-        countElement.textContent = allCards.length;
-    }
+    // Update count
+    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
+    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + requests.length;
 }
 
 function createServiceRequestElement(request) {
     const createdDate = new Date(request.created_at).toLocaleDateString();
     const createdTime = new Date(request.created_at).toLocaleTimeString();
     const statusClass = request.status === 'completed' ? 'completed' : '';
-    
-    // Convert technician_id to number for comparison
-    const requestTechId = parseInt(request.technician_id) || 0;
-    const currentTechId = parseInt(currentUserId) || 0;
-    
-    // Show accept button for pending requests (even if already assigned to someone else)
-    // This allows technicians to receive/reassign requests
-    // Note: 'Assigned' status is mapped to 'pending' in the API, so it shows in pending column
-    const isPending = request.status === 'pending' && 
-                      (!requestTechId || requestTechId !== currentTechId);
-    
-    // Show action buttons if assigned to current technician and in progress
-    const isAssigned = requestTechId === currentTechId && 
-                      request.status === 'in_progress';
+    const isPending = request.status === 'pending' && !request.technician_id;
+    const isAssigned = request.technician_id && (request.status === 'pending' || request.status === 'in_progress');
     const surveyCount = parseInt(request.survey_count || 0, 10) || 0;
     const surveyAverage = request.survey_average ? parseFloat(request.survey_average).toFixed(1) : null;
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;
@@ -773,7 +667,7 @@ function createServiceRequestElement(request) {
             <div class="task-actions mt-2">
                 ${isPending
                     ? `<button class="btn btn-sm btn-primary w-100" onclick="acceptServiceRequest(${request.id})">
-                           <i class="fas fa-hand-paper"></i> ${requestTechId && requestTechId !== currentTechId ? 'Reassign to Me' : 'Accept Request'}
+                           <i class="fas fa-hand-paper"></i> Accept Request
                        </button>`
                     : isAssigned
                     ? `<div class="d-grid gap-2">
@@ -786,10 +680,6 @@ function createServiceRequestElement(request) {
                            <button class="btn btn-sm btn-success" onclick="openCompleteServiceRequestModal(${request.id})">
                                <i class="fas fa-check-circle"></i> Mark Complete
                            </button>
-                       </div>`
-                    : requestTechId && requestTechId !== currentTechId
-                    ? `<div class="alert alert-warning mb-0 py-2">
-                           <i class="fas fa-info-circle"></i> Assigned to another technician
                        </div>`
                     : ''}
             </div>
@@ -810,13 +700,10 @@ function createServiceRequestElement(request) {
                         </div>
                         ${surveyLatestComment ? `<p class="text-muted small mb-1">${surveyLatestComment}</p>` : '<p class="text-muted small mb-1">No additional comments provided.</p>'}
                         ${surveyLatestAt ? `<small class="text-muted">Submitted: ${surveyLatestAt}</small>` : ''}
-                        <div class="mt-2 d-flex justify-content-between align-items-center">
+                        <div class="mt-2">
                             <span class="badge bg-light text-dark">
                                 <i class="fas fa-users"></i> ${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}
                             </span>
-                            <button class="btn btn-sm btn-outline-primary" onclick="viewRatings(${request.id})">
-                                <i class="fas fa-star"></i> View All Ratings
-                            </button>
                         </div>
                     </div>
                 ` : `
@@ -993,256 +880,6 @@ function openCompleteServiceRequestModal(requestId) {
 function updateServiceRequestCount(status, count) {
     // Don't add to existing count, just set it (will be recalculated with all items)
     // The count will be updated by the main refresh function
-}
-
-// ---------------- RATINGS VIEW ----------------
-function viewRatings(requestId) {
-    const modal = new bootstrap.Modal(document.getElementById('viewRatingsModal'));
-    const content = document.getElementById('ratingsContent');
-    
-    // Show loading state
-    content.innerHTML = `
-        <div class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-            <p class="mt-2">Loading ratings...</p>
-        </div>
-    `;
-    
-    modal.show();
-    
-    // Fetch ratings data
-    fetch('api/task_webhook.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            action: 'get_service_ratings',
-            request_id: requestId
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success && data.data) {
-            const { ratings, summary } = data.data;
-            renderRatings(content, ratings, summary);
-        } else {
-            content.innerHTML = `
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle"></i> ${data.message || 'Failed to load ratings'}
-                </div>
-            `;
-        }
-    })
-    .catch(err => {
-        content.innerHTML = `
-            <div class="alert alert-danger">
-                <i class="fas fa-times-circle"></i> Error loading ratings: ${err.message}
-            </div>
-        `;
-    });
-}
-
-function renderRatings(container, ratings, summary) {
-    if (!ratings || ratings.length === 0) {
-        container.innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle"></i> No ratings available for this service request yet.
-            </div>
-        `;
-        return;
-    }
-    
-    // Helper function to render stars
-    function renderStars(rating) {
-        let stars = '';
-        for (let i = 1; i <= 5; i++) {
-            if (i <= rating) {
-                stars += '<i class="fas fa-star text-warning"></i>';
-            } else {
-                stars += '<i class="far fa-star text-muted"></i>';
-            }
-        }
-        return stars;
-    }
-    
-    // Helper function to get rating label
-    function getRatingLabel(rating) {
-        if (rating >= 4.5) return 'Excellent';
-        if (rating >= 3.5) return 'Good';
-        if (rating >= 2.5) return 'Average';
-        if (rating >= 1.5) return 'Below Average';
-        return 'Poor';
-    }
-    
-    // Helper function to get satisfaction level based on rating (matching the form)
-    function getSatisfactionLevel(rating) {
-        if (rating === 5) return 'Very Satisfied';
-        if (rating === 4) return 'Satisfied';
-        if (rating === 3) return 'Neither Satisfied nor Dissatisfied';
-        if (rating === 2) return 'Dissatisfied';
-        if (rating === 1) return 'Very Dissatisfied';
-        return '';
-    }
-    
-    // Helper function to get rating color
-    function getRatingColor(rating) {
-        if (rating >= 4.5) return 'success';
-        if (rating >= 3.5) return 'info';
-        if (rating >= 2.5) return 'warning';
-        if (rating >= 1.5) return 'danger';
-        return 'secondary';
-    }
-    
-    let html = `
-        <!-- Summary Section -->
-        <div class="card mb-4 border-primary">
-            <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-chart-line"></i> Overall Summary</h5>
-            </div>
-            <div class="card-body">
-                <div class="row text-center mb-3">
-                    <div class="col-md-3">
-                        <div class="p-3 bg-light rounded">
-                            <h3 class="text-primary mb-1">${summary.total_ratings}</h3>
-                            <small class="text-muted">Total Ratings</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 bg-light rounded">
-                            <h3 class="text-${getRatingColor(summary.avg_total)} mb-1">${summary.avg_total}/5</h3>
-                            <small class="text-muted">Average Rating</small>
-                            <div class="mt-1">${renderStars(Math.round(summary.avg_total))}</div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 bg-light rounded">
-                            <h4 class="text-${getRatingColor(summary.avg_total)} mb-0">${getRatingLabel(summary.avg_total)}</h4>
-                            <small class="text-muted">Overall Performance</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="p-3 bg-light rounded">
-                            <h4 class="text-info mb-0">${((summary.avg_total / 5) * 100).toFixed(1)}%</h4>
-                            <small class="text-muted">Satisfaction Rate</small>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Category Breakdown -->
-                <div class="row">
-                    <div class="col-md-6 mb-2">
-                        <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                            <span class="small"><strong>Response time to your initial call for service:</strong></span>
-                            <span class="badge bg-${getRatingColor(summary.avg_response)}">${summary.avg_response}/5</span>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                            <span class="small"><strong>Quality of service provided to resolve the problem:</strong></span>
-                            <span class="badge bg-${getRatingColor(summary.avg_quality)}">${summary.avg_quality}/5</span>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                            <span class="small"><strong>Courtesy and professionalism of the attending ICT staff:</strong></span>
-                            <span class="badge bg-${getRatingColor(summary.avg_courtesy)}">${summary.avg_courtesy}/5</span>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <div class="d-flex justify-content-between align-items-center p-2 bg-white rounded border">
-                            <span class="small"><strong>Overall satisfaction with the assistance/service provided:</strong></span>
-                            <span class="badge bg-${getRatingColor(summary.avg_overall)}">${summary.avg_overall}/5</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Individual Ratings -->
-        <h5 class="mb-3"><i class="fas fa-list"></i> Individual Ratings (${ratings.length})</h5>
-        <div class="row">
-    `;
-    
-    ratings.forEach((rating, index) => {
-        const avgRating = (rating.eval_response + rating.eval_quality + rating.eval_courtesy + rating.eval_overall) / 4;
-        const submittedDate = new Date(rating.submitted_at).toLocaleString();
-        
-        html += `
-            <div class="col-md-6 mb-3">
-                <div class="card h-100 border">
-                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                        <div>
-                            <strong><i class="fas fa-user"></i> ${escapeHtml(rating.rater_name || 'Anonymous')}</strong>
-                            ${rating.office ? `<br><small class="text-muted">${escapeHtml(rating.office)}</small>` : ''}
-                        </div>
-                        <span class="badge bg-${getRatingColor(avgRating)}">${avgRating.toFixed(1)}/5</span>
-                    </div>
-                    <div class="card-body">
-                        <div class="mb-2">
-                            <small class="text-muted"><i class="fas fa-calendar"></i> ${submittedDate}</small>
-                        </div>
-                        
-                        <div class="rating-breakdown mb-3">
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><strong>Response time to your initial call for service</strong></span>
-                                    <div>
-                                        ${renderStars(rating.eval_response)}
-                                        <span class="badge bg-${getRatingColor(rating.eval_response)} ms-2">${rating.eval_response}/5</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted ms-3">${getSatisfactionLevel(rating.eval_response)}</small>
-                            </div>
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><strong>Quality of service provided to resolve the problem</strong></span>
-                                    <div>
-                                        ${renderStars(rating.eval_quality)}
-                                        <span class="badge bg-${getRatingColor(rating.eval_quality)} ms-2">${rating.eval_quality}/5</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted ms-3">${getSatisfactionLevel(rating.eval_quality)}</small>
-                            </div>
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><strong>Courtesy and professionalism of the attending ICT staff</strong></span>
-                                    <div>
-                                        ${renderStars(rating.eval_courtesy)}
-                                        <span class="badge bg-${getRatingColor(rating.eval_courtesy)} ms-2">${rating.eval_courtesy}/5</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted ms-3">${getSatisfactionLevel(rating.eval_courtesy)}</small>
-                            </div>
-                            <div class="mb-2">
-                                <div class="d-flex justify-content-between align-items-center mb-1">
-                                    <span class="small"><strong>Overall satisfaction with the assistance/service provided</strong></span>
-                                    <div>
-                                        ${renderStars(rating.eval_overall)}
-                                        <span class="badge bg-${getRatingColor(rating.eval_overall)} ms-2">${rating.eval_overall}/5</span>
-                                    </div>
-                                </div>
-                                <small class="text-muted ms-3">${getSatisfactionLevel(rating.eval_overall)}</small>
-                            </div>
-                        </div>
-                        
-                        ${rating.comments ? `
-                            <div class="mt-3 p-2 bg-light rounded">
-                                <strong><i class="fas fa-comment"></i> Comments:</strong>
-                                <p class="mb-0 mt-1 small">${escapeHtml(rating.comments)}</p>
-                            </div>
-                        ` : '<p class="text-muted small mb-0"><em>No additional comments provided.</em></p>'}
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    html += `
-        </div>
-    `;
-    
-    container.innerHTML = html;
 }
 
 // ---------------- Helpers ----------------

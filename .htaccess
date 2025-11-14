@@ -1,0 +1,7 @@
+# Ensure favicon requests use the project logo
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^favicon\.ico$ assets/logo/bsutneu.png [L,R=302]
+</IfModule>
+
+

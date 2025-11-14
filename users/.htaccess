@@ -1,0 +1,14 @@
+RewriteEngine On
+
+# Handle BSU folder structure
+RewriteCond %{REQUEST_URI} ^/BSU/users/(.*)$
+RewriteRule ^BSU/users/(.*)$ /users/$1 [L]
+
+# Redirect root to login if not logged in
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^$ login.php [L]
+
+# Handle direct access to PHP files
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^(.*)$ $1 [L] 

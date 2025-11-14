@@ -24,18 +24,6 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </li>
         
         <li class="nav-item">
-            <a href="maintenance.php" class="nav-link <?= $current_page === 'maintenance.php' ? 'active' : '' ?>">
-                <i class="fas fa-tools"></i> Maintenance
-            </a>
-        </li>
-        
-        <li class="nav-item">
-            <a href="tasks.php" class="nav-link <?= $current_page === 'tasks.php' ? 'active' : '' ?>">
-                <i class="fas fa-tasks"></i> Tasks
-            </a>
-        </li>
-        
-        <li class="nav-item">
             <a href="reports.php" class="nav-link <?= $current_page === 'reports.php' ? 'active' : '' ?>">
                 <i class="fas fa-chart-bar"></i> Reports
             </a>

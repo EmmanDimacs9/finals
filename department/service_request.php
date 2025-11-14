@@ -55,6 +55,18 @@ while ($row = $techniciansResult->fetch_assoc()) {
     $technicians[] = $row;
 }
 
+// Equipment categories list
+$equipmentCategories = [
+    'Desktop',
+    'Laptop',
+    'Printer',
+    'Access Point',
+    'Switch',
+    'Telephone',
+    'Network Connection',
+    'Other'
+];
+
 // Generate ICT SRF No (format: YYYY-XXXXX)
 $currentYear = date('Y');
 $srfQuery = "SELECT MAX(CAST(SUBSTRING_INDEX(ict_srf_no, '-', -1) AS UNSIGNED)) as max_num 
@@ -157,7 +169,7 @@ $stmt->close();
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><i class="fas fa-desktop"></i> ICT Service Request Form</h2>
                 <div class="d-flex gap-2">
-                    <button form="serviceRequestForm" type="submit" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                    <button form="serviceRequestForm" type="button" class="btn btn-danger" id="generatePdfBtn"><i class="fas fa-file-pdf"></i> Generate PDF</button>
                     <button form="serviceRequestForm" type="button" class="btn btn-warning sendRequestBtn" data-form="ICT Service Request Form"><i class="fas fa-paper-plane"></i> Send Request</button>
                 </div>
             </div>
@@ -217,19 +229,18 @@ $stmt->close();
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Required Response Time</label>
-                                <div class="input-group">
-                                    <input type="text" name="response_time" id="response_time" class="form-control" readonly>
-                                    <button type="button" class="btn btn-outline-primary" id="startTimerBtn">
-                                        <i class="fas fa-play"></i> Start Timer
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary" id="stopTimerBtn" style="display:none;">
-                                        <i class="fas fa-stop"></i> Stop
-                                    </button>
-                                    <button type="button" class="btn btn-outline-danger" id="resetTimerBtn">
-                                        <i class="fas fa-redo"></i> Reset
-                                    </button>
-                                </div>
-                                <small class="text-muted">Timer will track the response time for this service request</small>
+                                <select name="response_time" id="response_time" class="form-select" required>
+                                    <option value="">Select Response Time</option>
+                                    <option value="5 minutes">5 minutes</option>
+                                    <option value="10 minutes">10 minutes</option>
+                                    <option value="15 minutes">15 minutes</option>
+                                    <option value="30 minutes">30 minutes</option>
+                                    <option value="1 hour">1 hour</option>
+                                    <option value="2 hours">2 hours</option>
+                                    <option value="4 hours">4 hours</option>
+                                    <option value="8 hours">8 hours</option>
+                                </select>
+                                <small class="text-muted">Select the required response time for this service request</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Signature</label>
@@ -248,7 +259,15 @@ $stmt->close();
 
                         <div class="mb-3">
                             <label class="form-label">Equipment/Item Concern</label>
-                            <input type="text" name="equipment" class="form-control" placeholder="e.g., Desktop PC, Printer, Network Connection" required>
+                            <select name="equipment" class="form-select" required>
+                                <option value="">Select Equipment Category</option>
+                                <?php foreach ($equipmentCategories as $category): ?>
+                                    <option value="<?= htmlspecialchars($category) ?>">
+                                        <?= htmlspecialchars($category) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <small class="text-muted">Select the equipment category</small>
                         </div>
 
                         <div class="mb-3">
@@ -313,58 +332,40 @@ document.addEventListener('DOMContentLoaded', function() {
         signaturePad.clear();
     });
     
-    // Timer functionality
-    let timerInterval = null;
-    let startTime = null;
-    let elapsedTime = 0;
-    const responseTimeInput = document.getElementById('response_time');
-    const startTimerBtn = document.getElementById('startTimerBtn');
-    const stopTimerBtn = document.getElementById('stopTimerBtn');
-    const resetTimerBtn = document.getElementById('resetTimerBtn');
-    
-    function formatTime(seconds) {
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = seconds % 60;
-        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
-    
-    function updateTimer() {
-        if (startTime) {
-            elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+
+    // Handle PDF Generation
+    document.getElementById('generatePdfBtn').addEventListener('click', function() {
+        const form = document.getElementById('serviceRequestForm');
+        
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
         }
-        responseTimeInput.value = formatTime(elapsedTime);
-    }
-    
-    startTimerBtn.addEventListener('click', function() {
-        if (!startTime) {
-            startTime = Date.now() - (elapsedTime * 1000);
+        
+        // Save signature to hidden input if not already saved
+        if (signaturePad && !signaturePad.isEmpty()) {
+            document.getElementById('signatureData').value = signaturePad.toDataURL();
         }
-        timerInterval = setInterval(updateTimer, 1000);
-        startTimerBtn.style.display = 'none';
-        stopTimerBtn.style.display = 'inline-block';
-        updateTimer();
+        
+        // Get technician name for PDF
+        const technicianSelect = document.getElementById('technician_select');
+        const technicianName = technicianSelect.options[technicianSelect.selectedIndex]?.dataset.name || '';
+        if (technicianName) {
+            // Add technician name to form for PDF generation
+            let techNameInput = document.getElementById('technician_name_input');
+            if (!techNameInput) {
+                techNameInput = document.createElement('input');
+                techNameInput.type = 'hidden';
+                techNameInput.name = 'technician_name';
+                techNameInput.id = 'technician_name_input';
+                form.appendChild(techNameInput);
+            }
+            techNameInput.value = technicianName;
+        }
+        
+        // Submit form to generate PDF
+        form.submit();
     });
-    
-    stopTimerBtn.addEventListener('click', function() {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        startTimerBtn.style.display = 'inline-block';
-        stopTimerBtn.style.display = 'none';
-    });
-    
-    resetTimerBtn.addEventListener('click', function() {
-        clearInterval(timerInterval);
-        timerInterval = null;
-        startTime = null;
-        elapsedTime = 0;
-        responseTimeInput.value = '00:00:00';
-        startTimerBtn.style.display = 'inline-block';
-        stopTimerBtn.style.display = 'none';
-    });
-    
-    // Initialize timer display
-    responseTimeInput.value = '00:00:00';
 
     document.querySelectorAll('.sendRequestBtn').forEach(function(btn) {
         btn.addEventListener('click', function() {
@@ -385,10 +386,6 @@ document.addEventListener('DOMContentLoaded', function() {
             // Save signature to hidden input
             document.getElementById('signatureData').value = signaturePad.toDataURL();
             
-            // Stop timer if running
-            if (timerInterval) {
-                clearInterval(timerInterval);
-            }
             
             // Get technician name for PDF
             const technicianSelect = document.getElementById('technician_select');
@@ -415,12 +412,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.includes('✅')) {
                     form.reset();
                     signaturePad.clear();
-                    clearInterval(timerInterval);
-                    elapsedTime = 0;
-                    startTime = null;
-                    responseTimeInput.value = '00:00:00';
-                    startTimerBtn.style.display = 'inline-block';
-                    stopTimerBtn.style.display = 'none';
                 }
             })
             .catch(error => {

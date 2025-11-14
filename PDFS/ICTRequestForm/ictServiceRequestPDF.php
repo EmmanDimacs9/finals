@@ -12,12 +12,49 @@ logAdminAction($uid, $uname, "Generated Report", "ICT SERVICE REQUEST FORM");
 $campus         = $_POST['campus'] ?? '';
 $ict_srf_no     = $_POST['ict_srf_no'] ?? '';
 $client_name    = $_POST['client_name'] ?? '';
-$technician     = $_POST['technician'] ?? '';
+$technician_id  = $_POST['technician'] ?? '';
+$technician_name = $_POST['technician_name'] ?? '';
+$office         = $_POST['office'] ?? '';
 $date_time_call = $_POST['date_time_call'] ?? '';
 $response_time  = $_POST['response_time'] ?? '';
 $requirements   = $_POST['requirements'] ?? '';
 $accomplishment = $_POST['accomplishment'] ?? '';
 $remarks        = $_POST['remarks'] ?? '';
+$signature      = $_POST['signature'] ?? '';
+
+// If technician_name is not provided, fetch it from database using technician_id
+if (empty($technician_name) && !empty($technician_id)) {
+    $stmt = $conn->prepare("SELECT full_name FROM users WHERE id = ?");
+    $stmt->bind_param("i", $technician_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($row = $result->fetch_assoc()) {
+        $technician_name = $row['full_name'];
+    }
+    $stmt->close();
+}
+
+// If signature is not in POST, try to get it from database using ict_srf_no
+if (empty($signature) && !empty($ict_srf_no)) {
+    // Get service request ID from ict_srf_no
+    $stmt = $conn->prepare("SELECT id FROM service_requests WHERE ict_srf_no = ?");
+    $stmt->bind_param("s", $ict_srf_no);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    if ($row = $result->fetch_assoc()) {
+        $request_id = $row['id'];
+        // Get signature from service_request_signatures table
+        $sigStmt = $conn->prepare("SELECT signature_data FROM service_request_signatures WHERE service_request_id = ? ORDER BY created_at DESC LIMIT 1");
+        $sigStmt->bind_param("i", $request_id);
+        $sigStmt->execute();
+        $sigResult = $sigStmt->get_result();
+        if ($sigRow = $sigResult->fetch_assoc()) {
+            $signature = $sigRow['signature_data'];
+        }
+        $sigStmt->close();
+    }
+    $stmt->close();
+}
 
 $eval_response  = $_POST['eval_response'] ?? '';
 $eval_quality   = $_POST['eval_quality'] ?? '';
@@ -72,14 +109,50 @@ $pdf->Cell(30, 7, 'ICT SRF No.', 1, 0);
 $pdf->Cell(65, 7, $ict_srf_no, 1, 1);
 
 $pdf->Cell(30, 7, 'Office/Building', 1, 0);
-$pdf->Cell(65, 7, '', 1, 0);
+$pdf->Cell(65, 7, $office, 1, 0);
 $pdf->Cell(30, 7, 'Technician assigned', 1, 0);
-$pdf->Cell(65, 7, $technician, 1, 1);
+$pdf->Cell(65, 7, $technician_name, 1, 1);
 
 $pdf->Cell(30, 7, 'Client\'s Name', 1, 0);
 $pdf->Cell(65, 7, $client_name, 1, 0);
 $pdf->Cell(30, 7, 'Signature', 1, 0);
-$pdf->Cell(65, 7, '', 1, 1);
+// Display signature if available
+if (!empty($signature)) {
+    // Signature is base64 encoded image, decode and display
+    $signatureData = base64_decode(preg_replace('#^data:image/\w+;base64,#i', '', $signature));
+    if ($signatureData) {
+        // Save to temp file
+        $tempFile = tempnam(sys_get_temp_dir(), 'sig_') . '.png';
+        file_put_contents($tempFile, $signatureData);
+        // Get image dimensions
+        $imgInfo = getimagesize($tempFile);
+        if ($imgInfo) {
+            $imgWidth = $imgInfo[0];
+            $imgHeight = $imgInfo[1];
+            // Calculate size to fit in cell (65mm width, maintain aspect ratio)
+            $maxWidth = 60; // mm
+            $maxHeight = 20; // mm
+            $ratio = min($maxWidth / ($imgWidth * 0.264583), $maxHeight / ($imgHeight * 0.264583)); // Convert px to mm
+            $displayWidth = $imgWidth * 0.264583 * $ratio;
+            $displayHeight = $imgHeight * 0.264583 * $ratio;
+            
+            $x = $pdf->GetX();
+            $y = $pdf->GetY();
+            $pdf->Image($tempFile, $x + 2, $y + 1, $displayWidth, $displayHeight);
+            // Draw cell border
+            $pdf->Rect($x, $y, 65, max(7, $displayHeight + 2));
+            $pdf->SetXY($x + 65, $y);
+            $pdf->Cell(0, max(7, $displayHeight + 2), '', 0, 1);
+            unlink($tempFile);
+        } else {
+            $pdf->Cell(65, 7, '[Signature Image]', 1, 1);
+        }
+    } else {
+        $pdf->Cell(65, 7, '[Signature]', 1, 1);
+    }
+} else {
+    $pdf->Cell(65, 7, '', 1, 1);
+}
 
 $pdf->Cell(30, 7, 'Date/Time of Call', 1, 0);
 $pdf->Cell(65, 7, $date_time_call, 1, 0);

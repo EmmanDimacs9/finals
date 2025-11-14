@@ -13,6 +13,7 @@ $campus         = $_POST['campus'] ?? '';
 $ict_srf_no     = $_POST['ict_srf_no'] ?? '';
 $client_name    = $_POST['client_name'] ?? '';
 $technician     = $_POST['technician'] ?? '';
+$office         = $_POST['office'] ?? '';
 $date_time_call = $_POST['date_time_call'] ?? '';
 $response_time  = $_POST['response_time'] ?? '';
 $requirements   = $_POST['requirements'] ?? '';
@@ -72,7 +73,7 @@ $pdf->Cell(30, 7, 'ICT SRF No.', 1, 0);
 $pdf->Cell(65, 7, $ict_srf_no, 1, 1);
 
 $pdf->Cell(30, 7, 'Office/Building', 1, 0);
-$pdf->Cell(65, 7, '', 1, 0);
+$pdf->Cell(65, 7, $office, 1, 0);
 $pdf->Cell(30, 7, 'Technician assigned', 1, 0);
 $pdf->Cell(65, 7, $technician, 1, 1);
 

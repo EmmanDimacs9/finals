@@ -28,33 +28,49 @@ $pendingRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE st
 $completedRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Approved'")->fetch_assoc()['count'] ?? 0;
 $activityLogs = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
 
-// ✅ Date Filter (for Analytics)
+// ✅ Date Filter (for Analytics) - Using prepared statements to prevent SQL injection
 $startDate = $_GET['start_date'] ?? '';
 $endDate = $_GET['end_date'] ?? '';
-$dateCondition = '';
 
-if (!empty($startDate) && !empty($endDate)) {
-    $dateCondition = "WHERE DATE(created_at) BETWEEN '$startDate' AND '$endDate'";
-} elseif (!empty($startDate)) {
-    $dateCondition = "WHERE DATE(created_at) >= '$startDate'";
-} elseif (!empty($endDate)) {
-    $dateCondition = "WHERE DATE(created_at) <= '$endDate'";
-}
-
-// ✅ Analytics Query with Date Filter
+// ✅ Analytics Query with Date Filter - Using prepared statements
 $analyticsQuery = "SELECT form_type, COUNT(*) as count, 
                    SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
                    SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
                    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected_count
-                   FROM requests 
-                   $dateCondition
-                   GROUP BY form_type 
-                   ORDER BY count DESC";
-$analyticsResult = $conn->query($analyticsQuery);
+                   FROM requests";
+
+$params = [];
+$types = '';
+$whereClause = '';
+
+if (!empty($startDate) && !empty($endDate)) {
+    $whereClause = " WHERE DATE(created_at) BETWEEN ? AND ?";
+    $params[] = $startDate;
+    $params[] = $endDate;
+    $types = 'ss';
+} elseif (!empty($startDate)) {
+    $whereClause = " WHERE DATE(created_at) >= ?";
+    $params[] = $startDate;
+    $types = 's';
+} elseif (!empty($endDate)) {
+    $whereClause = " WHERE DATE(created_at) <= ?";
+    $params[] = $endDate;
+    $types = 's';
+}
+
+$analyticsQuery .= $whereClause . " GROUP BY form_type ORDER BY count DESC";
+
+$stmt = $conn->prepare($analyticsQuery);
+if (!empty($params)) {
+    $stmt->bind_param($types, ...$params);
+}
+$stmt->execute();
+$analyticsResult = $stmt->get_result();
 $formAnalytics = [];
 while ($row = $analyticsResult->fetch_assoc()) {
     $formAnalytics[] = $row;
 }
+$stmt->close();
 
 // ✅ Include forms
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';

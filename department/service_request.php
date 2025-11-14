@@ -131,7 +131,7 @@ while ($row = $locationsResult->fetch_assoc()) {
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><i class="fas fa-desktop"></i> ICT Service Request Form</h2>
                 <div class="d-flex gap-2">
-                    <button form="serviceRequestForm" type="submit" class="btn btn-danger"><i class="fas fa-file-pdf"></i> Generate PDF</button>
+                    <button form="serviceRequestForm" type="button" class="btn btn-danger" id="generatePdfBtn"><i class="fas fa-file-pdf"></i> Generate PDF</button>
                     <button form="serviceRequestForm" type="button" class="btn btn-warning sendRequestBtn" data-form="ICT Service Request Form"><i class="fas fa-paper-plane"></i> Send Request</button>
                 </div>
             </div>
@@ -215,6 +215,20 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('serviceRequestForm');
+
+    // Handle PDF Generation with validation
+    document.getElementById('generatePdfBtn').addEventListener('click', function() {
+        const form = document.getElementById('serviceRequestForm');
+        
+        // Validate form before submitting (since form has novalidate attribute)
+        if (!form.checkValidity()) {
+            form.reportValidity();
+            return;
+        }
+        
+        // Submit form to generate PDF
+        form.submit();
+    });
 
     document.querySelectorAll('.sendRequestBtn').forEach(function(btn) {
         btn.addEventListener('click', function() {

@@ -361,23 +361,40 @@ document.addEventListener('DOMContentLoaded', function() {
 // Refreshing
 function startAutoRefresh() { autoRefreshInterval = setInterval(loadAllItems, 10000); }
 function stopAutoRefresh() { clearInterval(autoRefreshInterval); }
-function loadAllItems() {
+async function loadAllItems() {
     // Reset counts first
     ['pending','in_progress','completed'].forEach(status => {
         document.getElementById(`${status.replace('_','-')}-count`).textContent = '0';
     });
     
-    // Load all items
-    ['pending','in_progress','completed'].forEach(status => {
-        loadTasksByStatus(status);
-        loadMaintenanceByStatus(status);
-        loadServiceRequestsByStatus(status);
+    // Load all items and await all promises
+    const statuses = ['pending','in_progress','completed'];
+    const allPromises = [];
+    
+    statuses.forEach(status => {
+        allPromises.push(loadTasksByStatus(status));
+        allPromises.push(loadMaintenanceByStatus(status));
+        allPromises.push(loadServiceRequestsByStatus(status));
     });
+    
+    // Wait for all async operations to complete before updating counts
+    try {
+        await Promise.all(allPromises);
+        
+        // Update counts after all items are loaded and rendered
+        statuses.forEach(status => {
+            const container = document.getElementById(`${status.replace('_','-')}-tasks`);
+            const totalItems = container.querySelectorAll('.task-card').length;
+            document.getElementById(`${status.replace('_','-')}-count`).textContent = totalItems;
+        });
+    } catch (error) {
+        console.error('Error loading items:', error);
+    }
 }
 
 // ---------------- TASKS ----------------
 function loadTasksByStatus(status) {
-    fetch('api/task_webhook.php', {
+    return fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({action: 'get_tasks', status: status, user_id: currentUserId})
@@ -387,14 +404,15 @@ function loadTasksByStatus(status) {
         if (data.success) {
             renderTasks(status, data.data);
         }
+        return Promise.resolve();
     });
 }
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
     // Remove only task cards, not service request cards
-    container.querySelectorAll('.task-card:not([data-service-request-id])').forEach(el => {
-        if (!el.closest('[data-maintenance-id]')) el.remove();
+    container.querySelectorAll('.task-card:not([data-service-request-id]):not([data-maintenance-id])').forEach(el => {
+        if (el.hasAttribute('data-task-id')) el.remove();
     });
     // Add new task cards
     tasks.forEach(task => {
@@ -404,9 +422,7 @@ function renderTasks(status, tasks) {
             container.insertAdjacentHTML('beforeend', taskHtml);
         }
     });
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + tasks.length;
+    // Count will be updated by loadAllItems after all items are loaded
 }
 
 function createTaskElement(task) {
@@ -439,7 +455,7 @@ function createTaskElement(task) {
 
 // ---------------- MAINTENANCE ----------------
 function loadMaintenanceByStatus(status) {
-    fetch('api/task_webhook.php', {
+    return fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({action: 'get_maintenance', user_id: currentUserId})
@@ -450,6 +466,7 @@ function loadMaintenanceByStatus(status) {
             const records = data.data.filter(r => r.status === status);
             renderMaintenance(status, records);
         }
+        return Promise.resolve();
     });
 }
 
@@ -459,9 +476,7 @@ function renderMaintenance(status, records) {
     container.querySelectorAll('[data-maintenance-id]').forEach(el => el.remove());
     // Add new maintenance cards
     records.forEach(r => container.insertAdjacentHTML('beforeend', createMaintenanceElement(r)));
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + records.length;
+    // Count will be updated by loadAllItems after all items are loaded
 }
 
 function createMaintenanceElement(record) {
@@ -562,7 +577,7 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '') {
 
 // ---------------- SERVICE REQUESTS ----------------
 function loadServiceRequestsByStatus(status) {
-    fetch('api/task_webhook.php', {
+    return fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({
@@ -576,8 +591,12 @@ function loadServiceRequestsByStatus(status) {
         if (data.success) {
             renderServiceRequests(status, data.data);
         }
+        return Promise.resolve();
     })
-    .catch(err => console.error('Error loading service requests:', err));
+    .catch(err => {
+        console.error('Error loading service requests:', err);
+        return Promise.resolve();
+    });
 }
 
 function renderServiceRequests(status, requests) {
@@ -588,9 +607,7 @@ function renderServiceRequests(status, requests) {
     requests.forEach(req => {
         container.insertAdjacentHTML('beforeend', createServiceRequestElement(req));
     });
-    // Update count
-    const currentCount = parseInt(document.getElementById(`${status.replace('_','-')}-count`).textContent) || 0;
-    document.getElementById(`${status.replace('_','-')}-count`).textContent = currentCount + requests.length;
+    // Count will be updated by loadAllItems after all items are loaded
 }
 
 function createServiceRequestElement(request) {
@@ -598,7 +615,8 @@ function createServiceRequestElement(request) {
     const createdTime = new Date(request.created_at).toLocaleTimeString();
     const statusClass = request.status === 'completed' ? 'completed' : '';
     const isPending = request.status === 'pending' && !request.technician_id;
-    const isAssigned = request.technician_id && (request.status === 'pending' || request.status === 'in_progress');
+    // Fix: Only show action buttons if the current technician is assigned to this request
+    const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
     const surveyCount = parseInt(request.survey_count || 0, 10) || 0;
     const surveyAverage = request.survey_average ? parseFloat(request.survey_average).toFixed(1) : null;
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;

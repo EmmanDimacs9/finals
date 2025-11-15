@@ -253,12 +253,36 @@ document.addEventListener('DOMContentLoaded', function() {
         const type = document.getElementById('completeItemType').value;
         const remarks = document.getElementById('completeRemarks').value.trim();
         if (!remarks) { alert("Please enter remarks."); return; }
-        if (type === 'task') {
+        
+        if (type === 'system_request') {
+            fetch('api/task_webhook.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: 'update_system_request_status',
+                    request_id: id,
+                    new_status: 'completed',
+                    remarks: remarks
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('System request completed!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
+                    loadAllItems();
+                } else {
+                    showAlert('Failed: ' + data.message, 'danger');
+                }
+            })
+            .catch(() => showAlert('Error completing system request', 'danger'));
+        } else if (type === 'task') {
             sendTaskStatusUpdate(id, 'completed', remarks);
+            bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
         } else {
             sendMaintenanceStatusUpdate(id, 'completed', remarks);
+            bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
         }
-        bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
     });
 
     // Auto-populate processing time based on support level (Assign Support Level Modal)
@@ -375,6 +399,7 @@ async function loadAllItems() {
         allPromises.push(loadTasksByStatus(status));
         allPromises.push(loadMaintenanceByStatus(status));
         allPromises.push(loadServiceRequestsByStatus(status));
+        allPromises.push(loadSystemRequestsByStatus(status));
     });
     
     // Wait for all async operations to complete before updating counts
@@ -732,6 +757,137 @@ function createServiceRequestElement(request) {
             </div>
         `}
     </div>`;
+}
+
+// ---------------- SYSTEM REQUESTS ----------------
+function loadSystemRequestsByStatus(status) {
+    return fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'get_system_requests', 
+            status: status === 'pending' ? 'Pending' : (status === 'in_progress' ? 'In Progress' : 'Completed'),
+            technician_id: currentUserId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            renderSystemRequests(status, data.data);
+        }
+        return Promise.resolve();
+    })
+    .catch(err => {
+        console.error('Error loading system requests:', err);
+        return Promise.resolve();
+    });
+}
+
+function renderSystemRequests(status, requests) {
+    const container = document.getElementById(`${status.replace('_','-')}-tasks`);
+    // Remove existing system request cards for this status
+    container.querySelectorAll('[data-system-request-id]').forEach(el => el.remove());
+    // Add new system request cards
+    requests.forEach(req => {
+        container.insertAdjacentHTML('beforeend', createSystemRequestElement(req));
+    });
+    // Count will be updated by loadAllItems after all items are loaded
+}
+
+function createSystemRequestElement(request) {
+    const createdDate = new Date(request.created_at).toLocaleDateString();
+    const createdTime = new Date(request.created_at).toLocaleTimeString();
+    const statusClass = request.status === 'completed' ? 'completed' : '';
+    const isPending = request.status === 'pending' && !request.technician_id;
+    const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
+    
+    return `
+    <div class="task-card system-request-card ${statusClass}" data-system-request-id="${request.id}">
+        <div class="task-header">
+            <h6 class="task-title">
+                <i class="fas fa-cog text-info"></i> ${escapeHtml(request.system_name || 'System Request')}
+            </h6>
+            <span class="priority-badge priority-medium">System Request</span>
+        </div>
+        
+        <div class="service-request-info">
+            <div class="mb-2">
+                <strong><i class="fas fa-building"></i> Office:</strong> ${escapeHtml(request.requesting_office || 'N/A')}
+            </div>
+            <div class="mb-2">
+                <strong><i class="fas fa-tag"></i> Type:</strong> ${escapeHtml(request.type_of_request || 'N/A')}
+            </div>
+            <div class="mb-2">
+                <strong><i class="fas fa-exclamation-triangle"></i> Urgency:</strong> ${escapeHtml(request.urgency || 'N/A')}
+            </div>
+            <div class="mb-2">
+                <strong><i class="fas fa-clipboard-list"></i> Description:</strong><br>
+                <span class="text-muted small">${escapeHtml(request.description || 'N/A')}</span>
+            </div>
+            ${request.remarks ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-comment"></i> Remarks:</strong><br>
+                <span class="text-muted small">${escapeHtml(request.remarks)}</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="task-meta">
+            <small class="text-muted">
+                <i class="fas fa-calendar-alt"></i> ${createdDate} ${createdTime}
+            </small>
+        </div>
+        
+        ${request.status !== 'completed' ? `
+            <div class="task-actions mt-2">
+                ${isPending
+                    ? `<button class="btn btn-sm btn-primary w-100" onclick="acceptSystemRequest(${request.id})">
+                           <i class="fas fa-hand-paper"></i> Accept Request
+                       </button>`
+                    : isAssigned
+                    ? `<div class="d-grid gap-2">
+                           <button class="btn btn-sm btn-success" onclick="openCompleteSystemRequestModal(${request.id})">
+                               <i class="fas fa-check-circle"></i> Mark Complete
+                           </button>
+                       </div>`
+                    : ''}
+            </div>
+        ` : `
+            <div class="mt-3">
+                <span class="badge bg-success mb-2"><i class="fas fa-check"></i> Completed</span>
+            </div>
+        `}
+    </div>`;
+}
+
+function acceptSystemRequest(requestId) {
+    if (confirm('Accept this system request?')) {
+        fetch('api/task_webhook.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'accept_system_request',
+                request_id: requestId,
+                technician_id: currentUserId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('System request accepted and moved to In Progress!', 'success');
+                loadAllItems();
+            } else {
+                showAlert('Failed: ' + data.message, 'danger');
+            }
+        })
+        .catch(() => showAlert('Error accepting request', 'danger'));
+    }
+}
+
+function openCompleteSystemRequestModal(requestId) {
+    document.getElementById('completeItemId').value = requestId;
+    document.getElementById('completeItemType').value = 'system_request';
+    new bootstrap.Modal(document.getElementById('completeModal')).show();
 }
 
 function acceptServiceRequest(requestId) {

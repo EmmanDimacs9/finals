@@ -7,9 +7,9 @@
                 <i class="fas fa-home"></i>
                 <span>Home</span>
             </a>
-            <a href="mytasks.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'mytasks.php' ? 'active' : ''; ?>" style="display:none">
-                <i class="fas fa-tasks"></i>
-                <span>My Task</span>
+            <a href="inventory.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'active' : ''; ?>">
+                <i class="fas fa-boxes"></i>
+                <span>Inventory</span>
             </a>
             <a href="qr.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'qr.php' ? 'active' : ''; ?>">
                 <i class="fas fa-qrcode"></i>

@@ -203,16 +203,6 @@ $maintenance_history = $maintenance_stmt->get_result();
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="maintenance.php" class="nav-link">
-                                <i class="fas fa-tools"></i> Maintenance
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="tasks.php" class="nav-link">
-                                <i class="fas fa-tasks"></i> Tasks
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a href="reports.php" class="nav-link">
                                 <i class="fas fa-chart-bar"></i> Reports
                             </a>
@@ -361,12 +351,6 @@ $maintenance_history = $maintenance_stmt->get_result();
                             <div class="card-body">
                                 <h5 class="card-title"><i class="fas fa-tools"></i> Quick Actions</h5>
                                 <div class="d-grid gap-2">
-                                    <a href="maintenance.php?equipment_id=<?php echo $equipment_id; ?>" class="btn btn-outline-warning">
-                                        <i class="fas fa-tools"></i> Schedule Maintenance
-                                    </a>
-                                    <a href="tasks.php?equipment_id=<?php echo $equipment_id; ?>" class="btn btn-outline-info">
-                                        <i class="fas fa-tasks"></i> Create Task
-                                    </a>
                                     <button class="btn btn-outline-secondary" onclick="printEquipment()">
                                         <i class="fas fa-print"></i> Print Details
                                     </button>

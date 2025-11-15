@@ -226,16 +226,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="maintenance.php" class="nav-link">
-                                <i class="fas fa-tools"></i> Maintenance
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="tasks.php" class="nav-link">
-                                <i class="fas fa-tasks"></i> Tasks
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a href="reports.php" class="nav-link">
                                 <i class="fas fa-chart-bar"></i> Reports
                             </a>

@@ -259,16 +259,6 @@ $assigned_tasks = $tasks_stmt->get_result();
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a href="maintenance.php" class="nav-link">
-                                <i class="fas fa-tools"></i> Maintenance
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="tasks.php" class="nav-link">
-                                <i class="fas fa-tasks"></i> Tasks
-                            </a>
-                        </li>
-                        <li class="nav-item">
                             <a href="reports.php" class="nav-link">
                                 <i class="fas fa-chart-bar"></i> Reports
                             </a>
@@ -405,12 +395,6 @@ $assigned_tasks = $tasks_stmt->get_result();
                                             <i class="fas fa-edit"></i> Edit User
                                         </a>
                                     <?php endif; ?>
-                                    <a href="tasks.php?user_id=<?php echo $user_id; ?>" class="btn btn-outline-info">
-                                        <i class="fas fa-tasks"></i> View Tasks
-                                    </a>
-                                    <a href="maintenance.php?technician_id=<?php echo $user_id; ?>" class="btn btn-outline-warning">
-                                        <i class="fas fa-tools"></i> View Maintenance
-                                    </a>
                                     <button class="btn btn-outline-secondary" onclick="printUserDetails()">
                                         <i class="fas fa-print"></i> Print Details
                                     </button>

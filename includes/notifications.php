@@ -186,6 +186,87 @@ function getBaseUrl() {
 }
 
 /**
+ * Send notification email to technicians when a new system request is submitted
+ */
+function notifyTechniciansNewSystemRequest($requestId, $formType, $submittedBy, $submittedByEmail, $systemName) {
+    global $conn;
+    
+    try {
+        // Get all technician users
+        $techQuery = "SELECT full_name, email FROM users WHERE role = 'technician'";
+        $techResult = $conn->query($techQuery);
+        
+        if (!$techResult || $techResult->num_rows === 0) {
+            error_log("No technician users found for notification");
+            return false;
+        }
+        
+        $mail = new PHPMailer(true);
+        
+        // Server settings
+        $mail->isSMTP();
+        $mail->Host       = SMTP_HOST;
+        $mail->SMTPAuth   = SMTP_AUTH;
+        $mail->Username   = SMTP_USERNAME;
+        $mail->Password   = SMTP_PASSWORD;
+        $mail->SMTPSecure = SMTP_SECURE === 'tls' ? PHPMailer::ENCRYPTION_STARTTLS : PHPMailer::ENCRYPTION_SMTPS;
+        $mail->Port       = SMTP_PORT;
+        $mail->SMTPDebug  = 0;
+        
+        // Recipients
+        $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
+        
+        // Add all technician users as recipients
+        while ($tech = $techResult->fetch_assoc()) {
+            $mail->addAddress($tech['email'], $tech['full_name']);
+        }
+        
+        // Content
+        $mail->isHTML(true);
+        $mail->Subject = 'New System Request Submitted - BSU Inventory System';
+        
+        $mail->Body = '
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #dc3545 0%, #343a40 100%); color: white; padding: 20px; text-align: center;">
+                <h2 style="margin: 0;">BSU Inventory Management System</h2>
+                <p style="margin: 10px 0 0 0;">New System Request Notification</p>
+            </div>
+            
+            <div style="padding: 30px; background: #f8f9fa;">
+                <h3 style="color: #dc3545; margin-top: 0;">🔧 New System Request Submitted</h3>
+                
+                <div style="background: white; padding: 20px; border-radius: 8px; border-left: 4px solid #dc3545;">
+                    <p><strong>Request ID:</strong> #' . $requestId . '</p>
+                    <p><strong>System Name:</strong> ' . htmlspecialchars($systemName) . '</p>
+                    <p><strong>Form Type:</strong> ' . htmlspecialchars($formType) . '</p>
+                    <p><strong>Submitted By:</strong> ' . htmlspecialchars($submittedBy) . '</p>
+                    <p><strong>Email:</strong> ' . htmlspecialchars($submittedByEmail) . '</p>
+                    <p><strong>Date Submitted:</strong> ' . date('Y-m-d H:i:s') . '</p>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="' . getBaseUrl() . 'technician/indet.php" 
+                       style="background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                        View Request
+                    </a>
+                </div>
+                
+                <p style="color: #6c757d; font-size: 14px; margin-top: 30px;">
+                    This is an automated notification from the BSU Inventory Management System.
+                </p>
+            </div>
+        </div>';
+        
+        $mail->send();
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("Failed to send technician notification: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Send test notification email
  */
 function sendTestNotification($email) {

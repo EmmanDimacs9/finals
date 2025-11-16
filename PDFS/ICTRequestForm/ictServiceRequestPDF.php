@@ -9,24 +9,21 @@ $uid = $_SESSION['user_id'] ?? 0;
 $uname = $_SESSION['user_name'] ?? 'SYSTEM';
 logAdminAction($uid, $uname, "Generated Report", "ICT SERVICE REQUEST FORM");
 
-// Get form data
-$title           = $_POST['title'] ?? '';
-$campus          = $_POST['campus'] ?? 'LIPA';
-$office          = $_POST['office'] ?? '';
-$ict_srf_no      = $_POST['ict_srf_no'] ?? '';
-$client_name     = $_POST['client_name'] ?? '';
-$technician      = $_POST['technician'] ?? '';
-$date_time_call  = $_POST['date_time_call'] ?? '';
-$response_time   = $_POST['response_time'] ?? '';
-$requirements    = $_POST['requirements'] ?? '';
-$accomp_response = $_POST['accomp_response'] ?? '';
-$accomp_service  = $_POST['accomp_service'] ?? '';
-$remarks         = $_POST['remarks'] ?? '';
+$campus         = $_POST['campus'] ?? '';
+$ict_srf_no     = $_POST['ict_srf_no'] ?? '';
+$client_name    = $_POST['client_name'] ?? '';
+$technician     = $_POST['technician'] ?? '';
+$office         = $_POST['office'] ?? '';
+$date_time_call = $_POST['date_time_call'] ?? '';
+$response_time  = $_POST['response_time'] ?? '';
+$requirements   = $_POST['requirements'] ?? '';
+$accomplishment = $_POST['accomplishment'] ?? '';
+$remarks        = $_POST['remarks'] ?? '';
 
-$eval_response   = $_POST['eval_response'] ?? '';
-$eval_quality    = $_POST['eval_quality'] ?? '';
-$eval_courtesy   = $_POST['eval_courtesy'] ?? '';
-$eval_overall    = $_POST['eval_overall'] ?? '';
+$eval_response  = $_POST['eval_response'] ?? '';
+$eval_quality   = $_POST['eval_quality'] ?? '';
+$eval_courtesy  = $_POST['eval_courtesy'] ?? '';
+$eval_overall   = $_POST['eval_overall'] ?? '';
 
 class PDF extends FPDF {
     private $logoPath;
@@ -552,65 +549,21 @@ $pdf->SetXY(10, $yStart + $headerHeight);
 $pdf->SetFont('Arial', '', 8);
 $pdf->SetFillColor(255, 255, 255);
 
-// Evaluation rows - each statement with 5 empty cells for checkmarks
-$pdf->EvaluationRow('Response time to your initial call for service', $eval_response);
-$pdf->EvaluationRow('Quality of service provided to resolve the problem', $eval_quality);
-$pdf->EvaluationRow('Courtesy and professionalism of the attending ICT staff', $eval_courtesy);
-$pdf->EvaluationRow('Overall satisfaction with the assistance/service provided', $eval_overall);
+// Rows
+$pdf->evaluationRow('Response time to your initial call for service', $eval_response);
+$pdf->evaluationRow('Quality of service provided to resolve the problem', $eval_quality);
+$pdf->evaluationRow('Courtesy and professionalism of the attending ICT staff', $eval_courtesy);
+$pdf->evaluationRow('Overall satisfaction with the assistance/service provided', $eval_overall);
 
-// --- Conforme Section (Connected to Evaluation Table) ---
-// No spacing - directly connected as part of the same table structure
-$pdf->SetFont('Arial', '', 9);
-
-// Conforme row - connected directly to evaluation table (full width with borders)
-$pdf->Cell(190, 7, 'Conforme:', 1, 1, 'C');
-
-// Signature fields - centered text with single signature line
-$rowHeight = 8; // Height for rows with single line
-$signatureLineWidth = 100; // Smaller width for signature lines (centered)
-$x = 10; // Starting X position for all rows
-
-// Row 1: Client's Signature Over Printed Name (connected row)
-$y = $pdf->GetY(); // Get current Y position
-$pdf->SetDrawColor(0, 0, 0);
-$pdf->SetLineWidth(0.2);
-$pdf->Rect($x, $y, 190, $rowHeight); // Draw border
-// Add text centered (positioned at top of cell)
-$pdf->SetXY($x, $y + 0.5);
-$pdf->SetFont('Arial', '', 9);
-$pdf->Cell(190, 3.5, "Client's Signature Over Printed Name", 0, 0, 'C');
-// Draw single line centered in cell (below text with spacing)
-$lineY = $y + 5.5; // Position line below text
-$lineX = $x + (190 - $signatureLineWidth) / 2; // Center the line
-$pdf->Line($lineX, $lineY, $lineX + $signatureLineWidth, $lineY);
-// Move to next row position
-$pdf->SetXY($x, $y + $rowHeight);
-
-// Row 2: Office/Building (connected row)
-$y = $pdf->GetY(); // Get current Y position
-$pdf->Rect($x, $y, 190, $rowHeight); // Draw border
-// Add text centered
-$pdf->SetXY($x, $y + 0.5);
-$pdf->Cell(190, 3.5, "Office/Building", 0, 0, 'C');
-// Draw single line centered in cell
-$lineY = $y + 5.5;
-$lineX = $x + (190 - $signatureLineWidth) / 2;
-$pdf->Line($lineX, $lineY, $lineX + $signatureLineWidth, $lineY);
-// Move to next row position
-$pdf->SetXY($x, $y + $rowHeight);
-
-// Row 3: Date Signed (connected row)
-$y = $pdf->GetY(); // Get current Y position
-$pdf->Rect($x, $y, 190, $rowHeight); // Draw border
-// Add text centered
-$pdf->SetXY($x, $y + 0.5);
-$pdf->Cell(190, 3.5, "Date Signed", 0, 0, 'C');
-// Draw single line centered in cell
-$lineY = $y + 5.5;
-$lineX = $x + (190 - $signatureLineWidth) / 2;
-$pdf->Line($lineX, $lineY, $lineX + $signatureLineWidth, $lineY);
-// Move to next row position
-$pdf->SetXY($x, $y + $rowHeight);
+// Conforme Section
+$pdf->Ln(4);
+$pdf->Cell(190, 7, 'Conforme:', 1, 1);
+$pdf->Ln(8);
+$pdf->Cell(190, 7, "Client's Signature Over Printed Name", 0, 1, 'C');
+$pdf->Ln(6);
+$pdf->Cell(190, 7, "Office/Building", 0, 1, 'C');
+$pdf->Ln(6);
+$pdf->Cell(190, 7, "Date Signed", 0, 1, 'C');
 
 $pdf->Output('I', 'ICT_Service_Request_Form.pdf');
 ?>

@@ -191,18 +191,27 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                                         <p class="mb-0 mt-2"><?= nl2br(htmlspecialchars($remark['remarks'])) ?></p>
                                     </div>
 
-                                    <div class="d-flex justify-content-between align-items-center text-muted small">
-                                        <div>
-                                            <?php if ($remark['technician_name']): ?>
-                                                <i class="fas fa-user-cog"></i> Technician: <?= htmlspecialchars($remark['technician_name']) ?>
-                                            <?php endif; ?>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div class="text-muted small">
+                                            <div>
+                                                <?php if ($remark['technician_name']): ?>
+                                                    <i class="fas fa-user-cog"></i> Technician: <?= htmlspecialchars($remark['technician_name']) ?>
+                                                <?php endif; ?>
+                                            </div>
+                                            <div class="mt-1">
+                                                <?php if ($remark['completed_at']): ?>
+                                                    <i class="fas fa-check-circle text-success"></i> Completed: <?= date('M d, Y h:i A', strtotime($remark['completed_at'])) ?>
+                                                <?php else: ?>
+                                                    <i class="fas fa-clock"></i> Created: <?= date('M d, Y h:i A', strtotime($remark['created_at'])) ?>
+                                                <?php endif; ?>
+                                            </div>
                                         </div>
                                         <div>
-                                            <?php if ($remark['completed_at']): ?>
-                                                <i class="fas fa-check-circle text-success"></i> Completed: <?= date('M d, Y h:i A', strtotime($remark['completed_at'])) ?>
-                                            <?php else: ?>
-                                                <i class="fas fa-clock"></i> Created: <?= date('M d, Y h:i A', strtotime($remark['created_at'])) ?>
-                                            <?php endif; ?>
+                                            <a href="../PDFS/ICTRequestForm/ictServiceRequestPDF.php?service_request_id=<?= $remark['id'] ?>" 
+                                               target="_blank" 
+                                               class="btn btn-danger btn-sm">
+                                                <i class="fas fa-file-pdf"></i> View PDF with Survey
+                                            </a>
                                         </div>
                                     </div>
                                 </div>

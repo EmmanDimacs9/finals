@@ -4,6 +4,27 @@ require_once '../includes/db.php';
 require_once '../includes/logs.php';
 
 requireLogin();
+
+// Fetch all unique offices/departments from equipment tables
+$departmentsQuery = "
+    SELECT DISTINCT department_office AS dept FROM desktop WHERE department_office IS NOT NULL AND department_office != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM laptops WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM printers WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM accesspoint WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM switch WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM telephone WHERE department IS NOT NULL AND department != ''
+    ORDER BY dept ASC
+";
+$departmentsResult = $conn->query($departmentsQuery);
+$departments = [];
+while ($row = $departmentsResult->fetch_assoc()) {
+    $departments[] = $row['dept'];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -99,7 +120,12 @@ requireLogin();
                     <form id="systemRequestForm" class="needs-validation" method="POST" action="../PDFS/SystemRequest/systemReqsPDF.php" target="_blank" novalidate>
                         <div class="mb-3">
                             <label for="office" class="form-label">Requesting Office/Unit</label>
-                            <input type="text" id="office" name="office" class="form-control" required>
+                            <select id="office" name="office" class="form-select" required>
+                                <option value="">Select Office/Department</option>
+                                <?php foreach ($departments as $dept): ?>
+                                    <option value="<?= htmlspecialchars($dept) ?>"><?= htmlspecialchars($dept) ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
 
                         <div class="mb-3">

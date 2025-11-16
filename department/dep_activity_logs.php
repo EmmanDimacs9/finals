@@ -12,17 +12,48 @@ if (isset($_GET['clear_logs']) && $_GET['clear_logs'] === '1') {
     exit;
 }
 
-// ✅ Fetch all logs with pagination
+// ✅ Fetch all logs with pagination (including service requests)
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
-// Get total count
-$totalLogs = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
+// Get total count from logs table
+$totalLogsCount = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
+
+// Get total count from service_requests table
+$totalServiceRequestsCount = $conn->query("SELECT COUNT(*) AS count FROM service_requests")->fetch_assoc()['count'] ?? 0;
+
+// Total combined count
+$totalLogs = $totalLogsCount + $totalServiceRequestsCount;
 $totalPages = ceil($totalLogs / $limit);
 
-// Fetch logs for current page
-$logs = $conn->query("SELECT * FROM logs ORDER BY date DESC LIMIT $limit OFFSET $offset");
+// Fetch logs and service requests, combine and sort by date
+$logsQuery = "
+    SELECT * FROM (
+        SELECT 
+            id,
+            user as user_name,
+            action as description,
+            DATE_FORMAT(date, '%Y-%m-%d %H:%i:%s') as log_date,
+            'log' as source_type
+        FROM logs
+        
+        UNION ALL
+        
+        SELECT 
+            sr.id,
+            COALESCE(u.full_name, sr.client_name) as user_name,
+            CONCAT('Service Request: ', sr.equipment, ' - ', LEFT(sr.requirements, 50)) as description,
+            DATE_FORMAT(sr.created_at, '%Y-%m-%d %H:%i:%s') as log_date,
+            'service_request' as source_type
+        FROM service_requests sr
+        LEFT JOIN users u ON sr.user_id = u.id
+    ) AS combined_logs
+    ORDER BY log_date DESC
+    LIMIT $limit OFFSET $offset
+";
+
+$logs = $conn->query($logsQuery);
 
 // ✅ Include your forms (modals)
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';
@@ -174,16 +205,19 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                                             <td><?= htmlspecialchars($log['id'] ?? '') ?></td>
                                             <td>
                                                 <i class="fas fa-user-circle text-primary me-2"></i>
-                                                <?= htmlspecialchars($log['user']) ?>
+                                                <?= htmlspecialchars($log['user_name'] ?? '') ?>
                                             </td>
                                             <td>
-                                                <span class="badge bg-info">
-                                                    <?= htmlspecialchars($log['action']) ?>
+                                                <span class="badge <?= ($log['source_type'] ?? '') === 'service_request' ? 'bg-success' : 'bg-info' ?>">
+                                                    <?php if (($log['source_type'] ?? '') === 'service_request'): ?>
+                                                        <i class="fas fa-desktop me-1"></i>
+                                                    <?php endif; ?>
+                                                    <?= htmlspecialchars($log['description'] ?? '') ?>
                                                 </span>
                                             </td>
                                             <td>
                                                 <i class="fas fa-clock text-muted me-2"></i>
-                                                <?= htmlspecialchars($log['date']) ?>
+                                                <?= htmlspecialchars($log['log_date'] ?? '') ?>
                                             </td>
                                         </tr>
                                     <?php endwhile; ?>

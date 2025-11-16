@@ -2,6 +2,7 @@
 require_once '../includes/session.php';
 require_once '../includes/db.php';
 require_once '../includes/notifications.php';
+require_once '../includes/logs.php';
 requireLogin();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -50,6 +51,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $user = $userResult->fetch_assoc();
             $userStmt->close();
             
+            // Log the service request creation
+            $userName = $_SESSION['user_name'] ?? $client_name;
+            logAction($userName, "Created Service Request: {$equipment} - " . substr($requirements, 0, 50));
+            
             // Send notification to technicians/admins
             if ($user) {
                 notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
@@ -92,7 +97,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Insert into requests table with form data
+    // Handle System Request specifically - save to system_requests table for technicians
+    if ($form_type === 'System Request') {
+        $office = $_POST['office'] ?? '';
+        $sysType = isset($_POST['sysType']) ? implode(', ', $_POST['sysType']) : '';
+        $urgency = isset($_POST['urgency']) ? implode(', ', $_POST['urgency']) : '';
+        $nameSystem = $_POST['nameSystem'] ?? '';
+        $descRequest = $_POST['descRequest'] ?? '';
+        $remarks = $_POST['remarks'] ?? '';
+
+        if (empty($office) || empty($nameSystem) || empty($descRequest)) {
+            echo "⚠️ Please fill in all required fields.";
+            exit;
+        }
+
+        // Ensure system_requests table exists with proper structure
+        $createSystemRequestsTable = "CREATE TABLE IF NOT EXISTS `system_requests` (
+            `id` int(11) NOT NULL AUTO_INCREMENT,
+            `user_id` int(11) NOT NULL,
+            `requesting_office` varchar(255) NOT NULL,
+            `type_of_request` varchar(255) NOT NULL,
+            `urgency` varchar(255) DEFAULT NULL,
+            `system_name` varchar(255) DEFAULT NULL,
+            `description` text DEFAULT NULL,
+            `remarks` text DEFAULT NULL,
+            `technician_id` int(11) DEFAULT NULL,
+            `status` enum('Pending','In Progress','Completed') DEFAULT 'Pending',
+            `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+            `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+            PRIMARY KEY (`id`),
+            KEY `user_id` (`user_id`),
+            KEY `technician_id` (`technician_id`),
+            KEY `status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
+        $conn->query($createSystemRequestsTable);
+
+        // Check and add columns if they don't exist (using safe approach without AFTER clauses)
+        $existingColumns = [];
+        $colsResult = $conn->query("SHOW COLUMNS FROM `system_requests`");
+        while ($col = $colsResult->fetch_assoc()) {
+            $existingColumns[] = $col['Field'];
+        }
+        
+        // Add columns one by one, checking existence first
+        // Use simple ADD COLUMN without AFTER to avoid dependency issues
+        if (!in_array('description', $existingColumns)) {
+            if (!$conn->query("ALTER TABLE `system_requests` ADD COLUMN `description` text DEFAULT NULL")) {
+                error_log("Failed to add description column: " . $conn->error);
+            } else {
+                $existingColumns[] = 'description';
+            }
+        }
+        
+        if (!in_array('user_id', $existingColumns)) {
+            if (!$conn->query("ALTER TABLE `system_requests` ADD COLUMN `user_id` int(11) NOT NULL")) {
+                error_log("Failed to add user_id column: " . $conn->error);
+            } else {
+                $existingColumns[] = 'user_id';
+            }
+        }
+        
+        if (!in_array('remarks', $existingColumns)) {
+            if (!$conn->query("ALTER TABLE `system_requests` ADD COLUMN `remarks` text DEFAULT NULL")) {
+                error_log("Failed to add remarks column: " . $conn->error);
+            } else {
+                $existingColumns[] = 'remarks';
+            }
+        }
+        
+        if (!in_array('technician_id', $existingColumns)) {
+            if (!$conn->query("ALTER TABLE `system_requests` ADD COLUMN `technician_id` int(11) DEFAULT NULL")) {
+                error_log("Failed to add technician_id column: " . $conn->error);
+            } else {
+                $existingColumns[] = 'technician_id';
+            }
+        }
+        
+        if (!in_array('updated_at', $existingColumns)) {
+            if (!$conn->query("ALTER TABLE `system_requests` ADD COLUMN `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()")) {
+                error_log("Failed to add updated_at column: " . $conn->error);
+            }
+        }
+
+        $stmt = $conn->prepare("INSERT INTO system_requests (user_id, requesting_office, type_of_request, urgency, system_name, description, remarks, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())");
+        
+        if (!$stmt) {
+            echo "❌ Error preparing statement: " . $conn->error;
+            exit;
+        }
+        
+        $stmt->bind_param("issssss", $user_id, $office, $sysType, $urgency, $nameSystem, $descRequest, $remarks);
+
+        if ($stmt->execute()) {
+            $requestId = $conn->insert_id;
+            
+            // Get user details for notification
+            $userQuery = "SELECT full_name, email FROM users WHERE id = ?";
+            $userStmt = $conn->prepare($userQuery);
+            $userStmt->bind_param("i", $user_id);
+            $userStmt->execute();
+            $userResult = $userStmt->get_result();
+            $user = $userResult->fetch_assoc();
+            $userStmt->close();
+            
+            // Log the system request creation
+            $userName = $_SESSION['user_name'] ?? 'Unknown';
+            logAction($userName, "Created System Request: {$nameSystem} - " . substr($descRequest, 0, 50));
+            
+            // Send notification to technicians/admins
+            if ($user) {
+                notifyTechniciansNewSystemRequest($requestId, $form_type, $user['full_name'], $user['email'], $nameSystem);
+            }
+            
+            echo "✅ System request has been submitted successfully. A technician will receive your request shortly.";
+        } else {
+            echo "❌ Error: " . $stmt->error;
+        }
+        $stmt->close();
+        exit;
+    }
+
+    // Insert into requests table with form data (for other form types)
     $stmt = $conn->prepare("INSERT INTO requests (user_id, form_type, form_data, status, created_at) VALUES (?, ?, ?, 'Pending', NOW())");
     
     if (!$stmt) {
@@ -113,6 +238,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $userResult = $userStmt->get_result();
         $user = $userResult->fetch_assoc();
         $userStmt->close();
+        
+        // Log the request creation
+        $userName = $_SESSION['user_name'] ?? 'Unknown';
+        logAction($userName, "Created Request: {$form_type}");
         
         // Send notification to admin
         if ($user) {

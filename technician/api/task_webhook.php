@@ -368,6 +368,122 @@ try {
             $response['average'] = $average;
             break;
 
+        case 'get_system_requests':
+            $status = $input['status'] ?? null;
+            $technician_id = $input['technician_id'] ?? null;
+
+            $where = [];
+            $params = [];
+            $types = '';
+
+            // For pending requests, show all. For assigned/in progress/completed, show only assigned to this technician
+            if ($status === 'Pending' || $status === 'pending') {
+                $where[] = "sr.status = 'Pending'";
+            } elseif (($status === 'In Progress' || $status === 'in_progress') && $technician_id) {
+                $where[] = "sr.status = 'In Progress' AND sr.technician_id = ?";
+                $params[] = $technician_id;
+                $types = 'i';
+            } elseif ($status && $technician_id) {
+                $where[] = "sr.status = ? AND sr.technician_id = ?";
+                $params[] = $status;
+                $params[] = $technician_id;
+                $types = 'si';
+            } elseif ($technician_id) {
+                $where[] = "(sr.technician_id = ? OR sr.status = 'Pending')";
+                $params[] = $technician_id;
+                $types = 'i';
+            }
+
+            $where_clause = !empty($where) ? "WHERE " . implode(" AND ", $where) : "";
+
+            $query = "
+                SELECT 
+                    sr.*, 
+                    u.full_name AS client_name_full
+                FROM system_requests sr
+                LEFT JOIN users u ON sr.user_id = u.id
+                $where_clause
+                ORDER BY sr.created_at DESC
+            ";
+
+            $stmt = $conn->prepare($query);
+            if (!empty($params)) {
+                $stmt->bind_param($types, ...$params);
+            }
+            $stmt->execute();
+            $result = $stmt->get_result();
+
+            $requests = [];
+            while ($row = $result->fetch_assoc()) {
+                // Map status to match kanban columns
+                if ($row['status'] === 'In Progress') {
+                    $row['status'] = 'in_progress';
+                } elseif ($row['status'] === 'Completed') {
+                    $row['status'] = 'completed';
+                } else {
+                    $row['status'] = 'pending';
+                }
+                $requests[] = $row;
+            }
+
+            $response['success'] = true;
+            $response['data'] = $requests;
+            break;
+
+        case 'accept_system_request':
+            if (!isset($input['request_id'], $input['technician_id'])) {
+                throw new Exception('Request ID and Technician ID are required');
+            }
+
+            $request_id = intval($input['request_id']);
+            $technician_id = intval($input['technician_id']);
+
+            $stmt = $conn->prepare("
+                UPDATE system_requests 
+                SET technician_id = ?, status = 'In Progress', updated_at = NOW() 
+                WHERE id = ? AND status = 'Pending'
+            ");
+            $stmt->bind_param("ii", $technician_id, $request_id);
+
+            if ($stmt->execute()) {
+                $response['success'] = true;
+                $response['message'] = 'System request accepted successfully';
+            } else {
+                throw new Exception('Failed to accept system request: ' . $stmt->error);
+            }
+            $stmt->close();
+            break;
+
+        case 'update_system_request_status':
+            if (!isset($input['request_id'], $input['new_status'])) {
+                throw new Exception('Request ID and new status are required');
+            }
+
+            $request_id = intval($input['request_id']);
+            $new_status = $input['new_status'];
+            $remarks = $input['remarks'] ?? '';
+
+            // Map status
+            $db_status = $new_status === 'in_progress' ? 'In Progress' : ($new_status === 'completed' ? 'Completed' : 'Pending');
+
+            $stmt = $conn->prepare("
+                UPDATE system_requests 
+                SET status = ?, remarks = ?, updated_at = NOW() 
+                WHERE id = ?
+            ");
+            $stmt->bind_param("ssi", $db_status, $remarks, $request_id);
+
+            if ($stmt->execute()) {
+                $response['success'] = true;
+                $response['message'] = $db_status === 'Completed' 
+                    ? 'System request completed successfully. Department has been notified.' 
+                    : 'System request updated successfully';
+            } else {
+                throw new Exception('Failed to update system request: ' . $stmt->error);
+            }
+            $stmt->close();
+            break;
+
         default:
             throw new Exception('Invalid action: ' . $input['action']);
     }

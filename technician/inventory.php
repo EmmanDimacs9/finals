@@ -15,6 +15,15 @@ $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : 
 $user_filter = isset($_GET['user']) ? $conn->real_escape_string($_GET['user']) : '';
 $location_filter = isset($_GET['location']) ? $conn->real_escape_string($_GET['location']) : '';
 
+// Pagination setup - each tab has its own page
+$items_per_page = 10;
+$desktop_page = isset($_GET['desktop_page']) ? max(1, (int)$_GET['desktop_page']) : 1;
+$laptops_page = isset($_GET['laptops_page']) ? max(1, (int)$_GET['laptops_page']) : 1;
+$printers_page = isset($_GET['printers_page']) ? max(1, (int)$_GET['printers_page']) : 1;
+$accesspoint_page = isset($_GET['accesspoint_page']) ? max(1, (int)$_GET['accesspoint_page']) : 1;
+$switch_page = isset($_GET['switch_page']) ? max(1, (int)$_GET['switch_page']) : 1;
+$telephone_page = isset($_GET['telephone_page']) ? max(1, (int)$_GET['telephone_page']) : 1;
+
 // Fetch distinct users and locations from all equipment tables
 $all_users = [];
 $all_locations = [];
@@ -69,6 +78,16 @@ function buildWhere($search, $user_filter, $location_filter) {
     return (count($clauses) > 0) ? ' WHERE ' . implode(' AND ', $clauses) : '';
 }
 
+// Helper function to build pagination URL
+function buildPaginationUrl($page, $page_param, $search, $user_filter, $location_filter) {
+    $params = [];
+    if (!empty($search)) $params['search'] = $search;
+    if (!empty($user_filter)) $params['user'] = $user_filter;
+    if (!empty($location_filter)) $params['location'] = $location_filter;
+    $params[$page_param] = $page;
+    return '?' . http_build_query($params);
+}
+
 // We'll fetch each table's rows separately (for the tabs)
 $desktop_where = buildWhere($search, $user_filter, $location_filter);
 $laptops_where = buildWhere($search, $user_filter, $location_filter);
@@ -76,6 +95,31 @@ $printers_where = buildWhere($search, $user_filter, $location_filter);
 $accesspoint_where = buildWhere($search, $user_filter, $location_filter);
 $switch_where = buildWhere($search, $user_filter, $location_filter);
 $telephone_where = buildWhere($search, $user_filter, $location_filter);
+
+// Get total counts for each table
+$desktop_count_q = "SELECT COUNT(*) as total FROM desktop" . $desktop_where;
+$desktop_total = $conn->query($desktop_count_q)->fetch_assoc()['total'] ?? 0;
+$desktop_total_pages = max(1, ceil($desktop_total / $items_per_page));
+
+$laptops_count_q = "SELECT COUNT(*) as total FROM laptops" . $laptops_where;
+$laptops_total = $conn->query($laptops_count_q)->fetch_assoc()['total'] ?? 0;
+$laptops_total_pages = max(1, ceil($laptops_total / $items_per_page));
+
+$printers_count_q = "SELECT COUNT(*) as total FROM printers" . $printers_where;
+$printers_total = $conn->query($printers_count_q)->fetch_assoc()['total'] ?? 0;
+$printers_total_pages = max(1, ceil($printers_total / $items_per_page));
+
+$accesspoint_count_q = "SELECT COUNT(*) as total FROM accesspoint" . $accesspoint_where;
+$accesspoint_total = $conn->query($accesspoint_count_q)->fetch_assoc()['total'] ?? 0;
+$accesspoint_total_pages = max(1, ceil($accesspoint_total / $items_per_page));
+
+$switch_count_q = "SELECT COUNT(*) as total FROM `switch`" . $switch_where;
+$switch_total = $conn->query($switch_count_q)->fetch_assoc()['total'] ?? 0;
+$switch_total_pages = max(1, ceil($switch_total / $items_per_page));
+
+$telephone_count_q = "SELECT COUNT(*) as total FROM telephone" . $telephone_where;
+$telephone_total = $conn->query($telephone_count_q)->fetch_assoc()['total'] ?? 0;
+$telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
 
 $page_title = 'Inventory';
 require_once 'header.php';
@@ -165,7 +209,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM desktop" . $desktop_where . " ORDER BY date_acquired DESC";
+                                $desktop_offset = ($desktop_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM desktop" . $desktop_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $desktop_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -193,6 +238,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Desktop Pagination -->
+                    <?php if ($desktop_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Desktop pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($desktop_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($desktop_page - 1, 'desktop_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $desktop_page - 2);
+                                $end_page = min($desktop_total_pages, $desktop_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'desktop_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $desktop_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($desktop_page < $desktop_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($desktop_page + 1, 'desktop_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Laptops -->
@@ -212,7 +290,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM laptops" . $laptops_where . " ORDER BY date_acquired DESC";
+                                $laptops_offset = ($laptops_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM laptops" . $laptops_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $laptops_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -239,6 +318,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Laptops Pagination -->
+                    <?php if ($laptops_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Laptops pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($laptops_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($laptops_page - 1, 'laptops_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $laptops_page - 2);
+                                $end_page = min($laptops_total_pages, $laptops_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'laptops_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $laptops_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($laptops_page < $laptops_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($laptops_page + 1, 'laptops_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Printers -->
@@ -258,7 +370,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM printers" . $printers_where . " ORDER BY date_acquired DESC";
+                                $printers_offset = ($printers_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM printers" . $printers_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $printers_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -285,6 +398,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Printers Pagination -->
+                    <?php if ($printers_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Printers pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($printers_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($printers_page - 1, 'printers_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $printers_page - 2);
+                                $end_page = min($printers_total_pages, $printers_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'printers_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $printers_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($printers_page < $printers_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($printers_page + 1, 'printers_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Access Points -->
@@ -304,7 +450,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM accesspoint" . $accesspoint_where . " ORDER BY date_acquired DESC";
+                                $accesspoint_offset = ($accesspoint_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM accesspoint" . $accesspoint_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $accesspoint_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -331,6 +478,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Access Point Pagination -->
+                    <?php if ($accesspoint_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Access Point pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($accesspoint_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($accesspoint_page - 1, 'accesspoint_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $accesspoint_page - 2);
+                                $end_page = min($accesspoint_total_pages, $accesspoint_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'accesspoint_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $accesspoint_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($accesspoint_page < $accesspoint_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($accesspoint_page + 1, 'accesspoint_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Switches -->
@@ -350,7 +530,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM `switch`" . $switch_where . " ORDER BY date_acquired DESC";
+                                $switch_offset = ($switch_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM `switch`" . $switch_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $switch_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -377,6 +558,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Switch Pagination -->
+                    <?php if ($switch_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Switch pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($switch_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($switch_page - 1, 'switch_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $switch_page - 2);
+                                $end_page = min($switch_total_pages, $switch_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'switch_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $switch_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($switch_page < $switch_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($switch_page + 1, 'switch_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Telephones -->
@@ -396,7 +610,8 @@ require_once 'header.php';
                             </thead>
                             <tbody>
                                 <?php
-                                $q = "SELECT * FROM telephone" . $telephone_where . " ORDER BY date_acquired DESC";
+                                $telephone_offset = ($telephone_page - 1) * $items_per_page;
+                                $q = "SELECT * FROM telephone" . $telephone_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $telephone_offset";
                                 $res = $conn->query($q);
                                 if ($res && $res->num_rows > 0):
                                     while ($row = $res->fetch_assoc()):
@@ -423,6 +638,39 @@ require_once 'header.php';
                             </tbody>
                         </table>
                     </div>
+                    <!-- Telephone Pagination -->
+                    <?php if ($telephone_total_pages > 1): ?>
+                        <nav class="pagination-nav mt-3" aria-label="Telephone pagination">
+                            <div class="pagination-wrapper">
+                                <?php if ($telephone_page > 1): ?>
+                                    <a href="<?php echo buildPaginationUrl($telephone_page - 1, 'telephone_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-prev">
+                                        Previous
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-prev disabled">Previous</span>
+                                <?php endif; ?>
+                                <?php 
+                                $start_page = max(1, $telephone_page - 2);
+                                $end_page = min($telephone_total_pages, $telephone_page + 2);
+                                for ($i = $start_page; $i <= $end_page; $i++): 
+                                ?>
+                                    <a href="<?php echo buildPaginationUrl($i, 'telephone_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-number <?php echo $i == $telephone_page ? 'active' : ''; ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                <?php endfor; ?>
+                                <?php if ($telephone_page < $telephone_total_pages): ?>
+                                    <a href="<?php echo buildPaginationUrl($telephone_page + 1, 'telephone_page', $search, $user_filter, $location_filter); ?>" 
+                                       class="pagination-btn pagination-next">
+                                        Next
+                                    </a>
+                                <?php else: ?>
+                                    <span class="pagination-btn pagination-next disabled">Next</span>
+                                <?php endif; ?>
+                            </div>
+                        </nav>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -433,13 +681,13 @@ require_once 'header.php';
 <div class="modal fade" id="equipmentModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
+            <div class="modal-header bg-danger text-white" style="background-color: #dc3545 !important;">
                 <h5 class="modal-title"><i class="fas fa-box"></i> Equipment Details</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" id="equipmentModalBody">
                 <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
+                    <div class="spinner-border text-danger" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
                 </div>
@@ -457,7 +705,7 @@ function viewEquipment(type, assetTag) {
     const modalBody = document.getElementById('equipmentModalBody');
     
     // Show loading
-    modalBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    modalBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-danger" role="status"><span class="visually-hidden">Loading...</span></div></div>';
     modal.show();
     
     // Fetch equipment details
@@ -466,13 +714,30 @@ function viewEquipment(type, assetTag) {
         .then(data => {
             if (data.success) {
                 const equipment = data.equipment;
+                const assetTag = escapeHtml(equipment.asset_tag || 'N/A');
+                
                 let html = '<div class="row">';
+                
+                // QR Code Section with Asset Tag
+                html += '<div class="col-md-12 mb-4 text-center">';
+                html += '<div class="qr-code-container">';
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(equipment.asset_tag || '')}`;
+                html += `<img src="${qrUrl}" alt="QR Code" class="qr-code-image mb-3" id="qrCodeImage">`;
+                html += `<div class="qr-code-tag-block">${assetTag}</div>`;
+                const assetTagRaw = equipment.asset_tag || '';
+                html += '<button class="btn btn-danger btn-sm mt-3" onclick="downloadQRCode(\'' + assetTagRaw.replace(/'/g, "\\'") + '\')">';
+                html += '<i class="fas fa-download"></i> Download QR Code';
+                html += '</button>';
+                html += '</div>';
+                html += '</div>';
+                
+                // Equipment Information Section
                 html += '<div class="col-md-12">';
                 html += '<h6 class="mb-3"><i class="fas fa-info-circle"></i> Equipment Information</h6>';
                 html += '<table class="table table-bordered">';
                 
                 // Common fields
-                html += `<tr><th style="width: 30%;">Asset Tag</th><td>${escapeHtml(equipment.asset_tag || 'N/A')}</td></tr>`;
+                html += `<tr><th style="width: 30%;">Asset Tag</th><td>${assetTag}</td></tr>`;
                 html += `<tr><th>Property/Equipment</th><td>${escapeHtml(equipment.property_equipment || 'N/A')}</td></tr>`;
                 html += `<tr><th>Assigned Person</th><td>${escapeHtml(equipment.assigned_person || 'N/A')}</td></tr>`;
                 html += `<tr><th>Location</th><td>${escapeHtml(equipment.location || 'N/A')}</td></tr>`;
@@ -514,6 +779,78 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function downloadQRCode(assetTag) {
+    if (!assetTag) {
+        alert('Asset tag is missing');
+        return;
+    }
+    
+    // Get the QR code image element
+    const qrImage = document.getElementById('qrCodeImage');
+    if (!qrImage) {
+        alert('QR code image not found');
+        return;
+    }
+    
+    // Create a canvas to draw the QR code and text
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size (larger for better quality)
+    canvas.width = 400;
+    canvas.height = 500;
+    
+    // Draw white background
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Load the QR code image
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = function() {
+        // Draw QR code in the center
+        const qrSize = 280;
+        const qrX = (canvas.width - qrSize) / 2;
+        const qrY = 40;
+        ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+        
+        // Draw asset tag text below QR code in black
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        
+        ctx.fillText(assetTag, canvas.width / 2, qrY + qrSize + 30);
+        
+        // Convert canvas to blob and download
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `QRCode_${assetTag}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        });
+    };
+    
+    img.onerror = function() {
+        // Fallback: download QR code directly
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(assetTag)}`;
+        const link = document.createElement('a');
+        link.href = qrUrl;
+        link.download = `QRCode_${assetTag}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+    
+    // Set the image source
+    img.src = qrImage.src;
 }
 </script>
 
@@ -571,7 +908,215 @@ function escapeHtml(text) {
 .table-hover tbody tr:hover:not(.clickable-row) {
     background-color: #f1f3f5;
 }
+
+/* QR Code Styles with Asset Tag */
+.qr-code-container {
+    display: inline-block;
+    padding: 25px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    max-width: 100%;
+}
+
+.qr-code-image {
+    display: block;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 20px;
+    border: 4px solid #f0f0f0;
+    border-radius: 10px;
+    padding: 12px;
+}
+
+.qr-code-tag-block {
+    display: block;
+    font-size: 20px;
+    font-weight: 700;
+    font-family: 'Arial', 'Helvetica', sans-serif;
+    color: #000000;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-top: 15px;
+    padding: 10px 15px;
+    word-break: break-all;
+    line-height: 1.4;
+}
+
+/* Responsive QR Code */
+@media (max-width: 768px) {
+    .qr-code-image {
+        width: 150px;
+        height: 150px;
+    }
+    
+    .qr-code-tag-block {
+        font-size: 16px;
+        letter-spacing: 1px;
+        padding: 8px 12px;
+    }
+    
+    .qr-code-container {
+        padding: 20px 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .qr-code-image {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .qr-code-tag-block {
+        font-size: 14px;
+        letter-spacing: 0.5px;
+        padding: 6px 10px;
+    }
+}
+
+/* Pagination Styles - Matching Image Design */
+.pagination-nav {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.pagination-wrapper {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    overflow: hidden;
+    background: white;
+}
+
+.pagination-btn {
+    display: inline-block;
+    padding: 10px 16px;
+    text-decoration: none;
+    color: #2196F3;
+    background-color: white;
+    border: none;
+    border-right: 1px solid #d0d0d0;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.pagination-btn:last-child {
+    border-right: none;
+    border-radius: 0 6px 6px 0;
+}
+
+.pagination-btn:first-child {
+    border-radius: 6px 0 0 6px;
+}
+
+.pagination-btn.pagination-prev {
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.pagination-btn.pagination-prev:not(.disabled):hover {
+    color: #2196F3;
+}
+
+.pagination-btn.pagination-next {
+    color: #2196F3;
+    font-weight: 500;
+}
+
+.pagination-btn.pagination-number {
+    color: #2196F3;
+    min-width: 40px;
+    text-align: center;
+}
+
+.pagination-btn.pagination-number.active {
+    background-color: #dc3545;
+    color: white !important;
+    font-weight: 600;
+}
+
+.pagination-btn:hover:not(.disabled):not(.active) {
+    background-color: #f8f9fa;
+    color: #2196F3;
+}
+
+.pagination-btn.pagination-prev:hover:not(.disabled),
+.pagination-btn.pagination-next:hover:not(.disabled) {
+    background-color: #f8f9fa;
+    color: #2196F3;
+}
+
+.pagination-btn.disabled {
+    color: #9e9e9e;
+    cursor: not-allowed;
+    pointer-events: none;
+    opacity: 0.6;
+    text-decoration: none;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .pagination-wrapper {
+        flex-wrap: wrap;
+        border-radius: 6px;
+    }
+    
+    .pagination-btn {
+        padding: 8px 12px;
+        font-size: 13px;
+        border-right: 1px solid #d0d0d0;
+        border-bottom: 1px solid #d0d0d0;
+    }
+    
+    .pagination-btn:last-child {
+        border-right: 1px solid #d0d0d0;
+        border-bottom: none;
+        border-radius: 0;
+    }
+    
+    .pagination-btn:nth-child(2) {
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .pagination-btn.pagination-prev,
+    .pagination-btn.pagination-next {
+        width: 100%;
+        text-align: center;
+        border-right: none;
+        border-bottom: 1px solid #d0d0d0;
+    }
+    
+    .pagination-btn.pagination-prev {
+        border-radius: 6px 6px 0 0;
+    }
+    
+    .pagination-btn.pagination-next {
+        border-radius: 0 0 6px 6px;
+        border-bottom: none;
+    }
+    
+    .pagination-btn.pagination-number {
+        flex: 1;
+        min-width: calc(25% - 1px);
+    }
+}
+
+@media (max-width: 480px) {
+    .pagination-btn {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    
+    .pagination-btn.pagination-number {
+        min-width: calc(33.333% - 1px);
+    }
+}
 </style>
 
 <?php require_once 'footer.php'; ?>
-

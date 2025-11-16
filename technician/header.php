@@ -366,12 +366,13 @@ if (!empty($_SESSION['profile_image'])) {
             align-items: center;
             text-decoration: none;
             color: #6c757d;
-            font-size: 0.75rem;
+            font-size: 0.7rem;
             font-weight: 500;
-            padding: 8px 12px;
+            padding: 6px 8px;
             border-radius: 12px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            min-width: 64px;
+            min-width: 50px;
+            flex: 1;
             position: relative;
             overflow: hidden;
         }
@@ -390,16 +391,16 @@ if (!empty($_SESSION['profile_image'])) {
         }
         
         .nav-item i {
-            font-size: 1.3rem;
-            margin-bottom: 4px;
+            font-size: 1.2rem;
+            margin-bottom: 3px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             z-index: 2;
         }
         
         .nav-item span {
-            font-size: 0.7rem;
-            line-height: 1.2;
+            font-size: 0.65rem;
+            line-height: 1.1;
             font-weight: 600;
             position: relative;
             z-index: 2;
@@ -463,7 +464,7 @@ if (!empty($_SESSION['profile_image'])) {
     <nav class="header-nav">
         <div class="header-container">
             <a href="indet.php" class="header-brand">
-                <img src="User icon.png" alt="Technician Portal Logo" style="width: 40px; height: 40px; margin-right: 12px;">
+                <img src="../images/User icon.png" alt="Technician Portal Logo" style="width: 40px; height: 40px; margin-right: 12px;">
                 Technician Portal
             </a>
             <div class="header-user">

@@ -234,6 +234,29 @@ require_once 'header.php';
   </div>
 </div>
 
+<!-- Feedback Preview Modal -->
+<div class="modal fade" id="feedbackPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title"><i class="fas fa-star"></i> Feedback Preview - Satisfaction Levels</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="feedbackPreviewModalBody">
+        <div class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2">Loading feedback details...</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let autoRefreshInterval;
 let currentUserId = <?php echo $user_id; ?>;
@@ -711,7 +734,7 @@ function createServiceRequestElement(request) {
                     </div>
                 ` : ''}
                 ${surveyCount > 0 ? `
-                    <div class="feedback-card mt-3 p-3">
+                    <div class="feedback-card mt-3 p-3 clickable-feedback" onclick="viewFeedbackPreview(${request.id})" style="cursor: pointer;">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <strong><i class="fas fa-comment-dots text-primary"></i> Department Feedback</strong>
                             ${surveyAverage ? `<span class="badge bg-primary">${surveyAverage}/5 Avg</span>` : ''}
@@ -721,6 +744,9 @@ function createServiceRequestElement(request) {
                         <div class="mt-2">
                             <span class="badge bg-light text-dark">
                                 <i class="fas fa-users"></i> ${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}
+                            </span>
+                            <span class="badge bg-info ms-2">
+                                <i class="fas fa-eye"></i> Click to view details
                             </span>
                         </div>
                     </div>
@@ -898,6 +924,115 @@ function openCompleteServiceRequestModal(requestId) {
 function updateServiceRequestCount(status, count) {
     // Don't add to existing count, just set it (will be recalculated with all items)
     // The count will be updated by the main refresh function
+}
+
+// ---------------- FEEDBACK PREVIEW ----------------
+function getSatisfactionLevel(rating) {
+    if (rating === 5) return 'Very Satisfied';
+    if (rating === 4) return 'Satisfied';
+    if (rating === 3) return 'Neither Satisfied nor Dissatisfied';
+    if (rating === 2) return 'Dissatisfied';
+    if (rating === 1) return 'Very Dissatisfied';
+    return '';
+}
+
+function viewFeedbackPreview(requestId) {
+    const modal = new bootstrap.Modal(document.getElementById('feedbackPreviewModal'));
+    const modalBody = document.getElementById('feedbackPreviewModalBody');
+    
+    // Show loading
+    modalBody.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div><p class="mt-2">Loading feedback details...</p></div>';
+    modal.show();
+    
+    // Fetch survey data
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'get_service_request_surveys',
+            request_id: parseInt(requestId)
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success && data.surveys && data.surveys.length > 0) {
+            let html = '<div class="feedback-preview-content">';
+            html += '<h6 class="mb-3"><i class="fas fa-star text-warning"></i> Feedback Ratings & Satisfaction Levels</h6>';
+            
+            data.surveys.forEach((survey, index) => {
+                const avgRating = (parseInt(survey.eval_response) + parseInt(survey.eval_quality) + parseInt(survey.eval_courtesy) + parseInt(survey.eval_overall)) / 4;
+                const submittedDate = new Date(survey.submitted_at).toLocaleString();
+                
+                html += `<div class="card mb-3 border-start border-primary border-4">`;
+                html += `<div class="card-header bg-light">`;
+                html += `<div class="d-flex justify-content-between align-items-center">`;
+                html += `<div>`;
+                html += `<strong><i class="fas fa-user"></i> ${escapeHtml(survey.user_name || 'Anonymous')}</strong>`;
+                html += `${survey.office ? `<br><small class="text-muted">${escapeHtml(survey.office)}</small>` : ''}`;
+                html += `</div>`;
+                html += `<span class="badge bg-primary">Average: ${avgRating.toFixed(1)}/5</span>`;
+                html += `</div>`;
+                html += `<small class="text-muted"><i class="fas fa-calendar"></i> ${submittedDate}</small>`;
+                html += `</div>`;
+                html += `<div class="card-body">`;
+                
+                // Response time
+                html += `<div class="mb-3 p-2 bg-light rounded">`;
+                html += `<div class="d-flex justify-content-between align-items-center mb-1">`;
+                html += `<span><strong>Response time to your initial call for service:</strong></span>`;
+                html += `<span class="badge bg-${survey.eval_response >= 4 ? 'success' : survey.eval_response >= 3 ? 'warning' : 'danger'}">${survey.eval_response}/5</span>`;
+                html += `</div>`;
+                html += `<div class="text-muted small"><i class="fas fa-check-circle"></i> ${getSatisfactionLevel(parseInt(survey.eval_response))}</div>`;
+                html += `</div>`;
+                
+                // Quality
+                html += `<div class="mb-3 p-2 bg-light rounded">`;
+                html += `<div class="d-flex justify-content-between align-items-center mb-1">`;
+                html += `<span><strong>Quality of service provided to resolve the problem:</strong></span>`;
+                html += `<span class="badge bg-${survey.eval_quality >= 4 ? 'success' : survey.eval_quality >= 3 ? 'warning' : 'danger'}">${survey.eval_quality}/5</span>`;
+                html += `</div>`;
+                html += `<div class="text-muted small"><i class="fas fa-check-circle"></i> ${getSatisfactionLevel(parseInt(survey.eval_quality))}</div>`;
+                html += `</div>`;
+                
+                // Courtesy
+                html += `<div class="mb-3 p-2 bg-light rounded">`;
+                html += `<div class="d-flex justify-content-between align-items-center mb-1">`;
+                html += `<span><strong>Courtesy and professionalism of the attending ICT staff:</strong></span>`;
+                html += `<span class="badge bg-${survey.eval_courtesy >= 4 ? 'success' : survey.eval_courtesy >= 3 ? 'warning' : 'danger'}">${survey.eval_courtesy}/5</span>`;
+                html += `</div>`;
+                html += `<div class="text-muted small"><i class="fas fa-check-circle"></i> ${getSatisfactionLevel(parseInt(survey.eval_courtesy))}</div>`;
+                html += `</div>`;
+                
+                // Overall
+                html += `<div class="mb-3 p-2 bg-light rounded">`;
+                html += `<div class="d-flex justify-content-between align-items-center mb-1">`;
+                html += `<span><strong>Overall satisfaction with the assistance/service provided:</strong></span>`;
+                html += `<span class="badge bg-${survey.eval_overall >= 4 ? 'success' : survey.eval_overall >= 3 ? 'warning' : 'danger'}">${survey.eval_overall}/5</span>`;
+                html += `</div>`;
+                html += `<div class="text-muted small"><i class="fas fa-check-circle"></i> ${getSatisfactionLevel(parseInt(survey.eval_overall))}</div>`;
+                html += `</div>`;
+                
+                // Comments
+                if (survey.comments) {
+                    html += `<div class="mt-3 p-2 bg-info bg-opacity-10 rounded">`;
+                    html += `<strong><i class="fas fa-comment"></i> Comments:</strong>`;
+                    html += `<p class="mb-0 mt-2">${escapeHtml(survey.comments)}</p>`;
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+                html += `</div>`;
+            });
+            
+            html += '</div>';
+            modalBody.innerHTML = html;
+        } else {
+            modalBody.innerHTML = '<div class="alert alert-warning"><i class="fas fa-exclamation-triangle"></i> No feedback data available.</div>';
+        }
+    })
+    .catch(error => {
+        modalBody.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error loading feedback: ${escapeHtml(error.message)}</div>`;
+    });
 }
 
 // ---------------- Helpers ----------------
@@ -1131,6 +1266,17 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     border-left: 4px solid #0d6efd;
     border-radius: 10px;
     box-shadow: inset 0 0 0 1px rgba(13,110,253,0.1);
+}
+
+.clickable-feedback {
+    transition: all 0.3s ease;
+}
+
+.clickable-feedback:hover {
+    background: linear-gradient(135deg, rgba(13,110,253,0.15) 0%, rgba(13,110,253,0.08) 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(13,110,253,0.2) !important;
+    border-left-width: 6px;
 }
 
 /* Scrollbar Styling */

@@ -15,6 +15,14 @@
                 <i class="fas fa-qrcode"></i>
                 <span>QR</span>
             </a>
+            <a href="reports.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>">
+                <i class="fas fa-chart-bar"></i>
+                <span>Reports</span>
+            </a>
+            <a href="users.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
+                <i class="fas fa-user-plus"></i>
+                <span>Accounts</span>
+            </a>
             <a href="history.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'history.php' ? 'active' : ''; ?>">
                 <i class="fas fa-history"></i>
                 <span>History</span>

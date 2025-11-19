@@ -1,14 +1,14 @@
 <?php
+session_start();
 require_once "includes/session.php";
 require_once "includes/db.php";
 
 // Check if user is already logged in
 if (isset($_SESSION["user_id"])) {
-    header("Location: admin/dashboard.php");
+    header("Location: dashboard.php");
     exit();
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,126 +23,98 @@ if (isset($_SESSION["user_id"])) {
             padding: 0;
             box-sizing: border-box;
         }
-
-        .container {
-            display: flex;
+        body, html {
+            height: 100%;
+            min-height: 100vh;
+        }
+        body {
+            width: 100vw;
+            height: 100vh;
+            min-height: 100vh;
+            font-family: 'Inknut Antiqua', serif;
+            position: relative;
+            background: url('images/BSU.jpg') no-repeat center center fixed; 
+            background-size: cover;
+        }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1;
+            width: 100vw;
             height: 100vh;
         }
-
-        /* Left Side - White Background with Logo */
-        .left-side {
-            flex: 1;
-            background: #ffffff;
+        .main-content {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            min-height: 100vh;
+            z-index: 2;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 40px;
-            position: relative;
+            width: 100vw;
         }
-
-        .left-side::before {
-            content: "";
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 200px;
-            background: linear-gradient(135deg, #dc3545 0%, #ff4444 50%, #ffaa00 100%);
-            clip-path: polygon(0 100%, 100% 60%, 100% 100%);
-            z-index: 1;
-        }
-
-        .logo-container {
-            text-align: center;
-            z-index: 2;
-        }
-
-        .laptop-icon {
-            width: 400px;
-            padding-top: 0px;
-            height: auto;
-            margin-bottom: 0px;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
-        }
-
-        .system-title-left {
-            font-size: 2.8rem;
-            font-weight: 900;
-            color: #000000;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            padding-top: 0px;
-            padding-bottom: 100px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
-            font-family: 'Inknut Antiqua', serif;
-        }
-
-        /* Right Side - Building Background */
-        .right-side {
-            flex: 1;
-            background: linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.3)), url("BSU.jpg") center/cover;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px;
-            position: relative;
-        }
-
         .top-buttons {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 30px;
+            right: 30px;
+            z-index: 4;
             display: flex;
-            gap: 10px;
+            gap: 12px;
         }
-
         .top-btn {
             background: #dc3545;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-weight: 600;
+            padding: 9px 18px;
+            border-radius: 16px;
+            font-weight: 700;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 1rem;
             text-decoration: none;
-            display: inline-block;
+            transition: background 0.2s;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, .12);
+            letter-spacing: 1px;
         }
-
         .top-btn:hover {
             background: #c82333;
         }
-
-        .right-content {
-            max-width: 500px;
-            width: 100%;
-            margin-top: 100px;
+        .logo-main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .logo-main img {
+            width: 420px;
+            max-width: 90vw;
+            height: auto;
+            margin-bottom: 20px;
+            filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12));
+        }
+        .system-title {
+            font-size: 2.2rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 2px 2px 4px #111, 0 1px 15px #000a;
+            letter-spacing: 3px;
             text-align: center;
+            text-transform: uppercase;
         }
-
         .welcome-text {
-            color: white;
-            font-size: 3rem;
+            color: #fff;
+            font-size: 1.7rem;
             font-weight: 700;
-            text-shadow: 2px 2px 8px rgba(0,0,0,0.5);
-            margin-bottom: 0px;
-            line-height: 1.2;
+            text-shadow: 1px 1px 6px #222c, 0 2px 16px #000a;
+            text-align: center;
+            margin-top: 10px;
+            margin-bottom: 30px;
         }
-
-        .tagline {
-            color: white;
-            font-size: 1.8rem;
-            font-weight: 500;
-            text-shadow: 2px 2px 6px rgba(0,0,0,0.5);
-            margin-bottom: 50px;
-        }
-
         .login-btn {
             background: #dc3545;
             color: white;
             border: none;
-            padding: 18px 80px;
+            padding: 18px 70px;
             border-radius: 50px;
             font-size: 1.2rem;
             font-weight: 700;
@@ -151,48 +123,39 @@ if (isset($_SESSION["user_id"])) {
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4);
-            margin-bottom: 80px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 18px rgba(220, 53, 69, 0.20);
+            transition: background 0.2s, transform 0.13s;
         }
-
         .login-btn:hover {
             background: #c82333;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.6);
+            transform: translateY(-2px) scale(1.03);
         }
-
         .icon-row {
             display: flex;
             justify-content: center;
-            gap: 30px;
-            margin-top: 20px;
+            gap: 32px;
         }
-
         .icon-circle {
-            width: 70px;
-            height: 70px;
+            width: 66px;
+            height: 66px;
             background: #dc3545;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            transition: background 0.2s, transform .13s;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.20);
         }
-
         .icon-circle:hover {
             background: #c82333;
-            transform: scale(1.1);
+            transform: scale(1.11);
         }
-
         .icon-circle i {
             color: white;
-            font-size: 1.8rem;
+            font-size: 2.1rem;
         }
-
-        /* Modal */
         .modal-overlay {
             position: fixed;
             inset: 0;
@@ -203,112 +166,120 @@ if (isset($_SESSION["user_id"])) {
             z-index: 2000;
             padding: 20px;
         }
-
         .modal {
             background: #ffffff;
             width: 100%;
-            max-width: 700px;
-            border-radius: 12px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            max-width: 810px;
+            border-radius: 14px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.28);
             overflow: hidden;
+            max-height: 95vh;
+            overflow-y: auto;
         }
-
         .modal-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 20px;
+            padding: 18px 26px 18px 22px;
             background: #dc3545;
-            color: #ffffff;
+            color: #fff;
+            font-size: 1.21rem;
+            font-weight: bold;
+            text-align: left;
+            border-radius: 14px 14px 0 0;
+            letter-spacing: 0.3px;
         }
-
+        .modal-title {
+            font-size: 1.10em;
+            font-weight: bold;
+            text-align: left;
+        }
         .modal-close {
             background: transparent;
             border: none;
             color: #ffffff;
-            font-size: 1.2rem;
+            font-size: 1.35rem;
             cursor: pointer;
+            margin-left: 18px;
+            margin-top: -4px;
         }
-
         .modal-body {
-            padding: 20px;
-            color: #212529;
-            line-height: 1.6;
+            padding: 34px 32px 28px 32px;
+            color: #222;
+            line-height: 1.7;
         }
-
-        .modal-body h4 {
-            margin: 0 0 6px 0;
+        .modal-body h3, .modal-body h4 {
+            font-weight: bold;
+            font-size: 1.02em;
+            margin-bottom: 5px;
+            margin-top: 21px;
+            color: #1a1a1a;
+            text-align: left;
         }
-
+        .modal-body h3:first-child, .modal-body h4:first-child {
+            margin-top: 0;
+        }
         .modal-body p {
-            margin: 0 0 14px 0;
+            margin-bottom: 15px;
+            font-size: 1.09em;
+            color: #303030;
+            text-align: left;
         }
-
-        @media (max-width: 968px) {
-            .container {
-                flex-direction: column;
+        @media (max-width: 768px) {
+            .logo-main img { width: 300px; }
+            .system-title { font-size: 1.1rem; }
+            .welcome-text { font-size: 1.13rem; }
+            .login-btn { font-size: 1rem; padding: 14px 30px; }
+            .icon-circle { width: 45px; height: 45px; }
+            .icon-circle i { font-size: 1.25rem; }
+            .top-buttons {
+                top: 10px;
+                right: 8px;
             }
-
-            .left-side, .right-side {
-                min-height: 50vh;
+            .modal { max-width: 98vw; }
+            .modal-header { padding: 14px 15px 14px 14px; font-size: 1.10rem; }
+            .modal-body { padding: 24px 11px 22px 11px; font-size: 0.97em; }
+        }
+        @media (max-width: 480px) {
+            .logo-main img { width: 410px; }
+            .main-content {
+                padding: 10px;
             }
-
-            .system-title-left {
-                font-size: 2rem;
-            }
-
-            .welcome-text {
-                font-size: 2rem;
-            }
-
-            .tagline {
-                font-size: 1.3rem;
-            }
+            .icon-row { gap: 11px; }
+            .system-title { font-size: 0.96rem; letter-spacing: 1px; }
+            .login-btn { font-size: 0.91rem; padding: 8px 20px; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Left Side -->
-        <div class="left-side">
-            <div class="logo-container">
-                <img src="images/Ict logs.png" alt="ICT Inventory System" class="laptop-icon">
-                <h1 class="system-title-left">ICT INVENTORY SYSTEM</h1>
-            </div>
+    <div class="overlay"></div>
+    <div class="main-content">
+        <div class="top-buttons">
+            <a href="#" id="btnPrivacy" class="top-btn">Privacy Policy</a>
+            <a href="#" id="btnFaq" class="top-btn">FAQS</a>
         </div>
-
-        <!-- Right Side -->
-        <div class="right-side">
-            <div class="top-buttons">
-                <a href="#" id="btnPrivacy" class="top-btn">Privacy Policy</a>
-                <a href="#" id="btnFaq" class="top-btn">FAQS</a>
+        <div class="logo-main">
+            <img src="images/landing logo.png" alt="ICT Inventory Logo">
+        </div>
+        <div class="system-title">ICT INVENTORY SYSTEM</div>
+        <div class="welcome-text">Log in and let's get started!</div>
+        <a href="landing.php" class="login-btn">
+            <i class="fas fa-sign-in-alt"></i>
+            Login
+        </a>
+        <div class="icon-row">
+            <div class="icon-circle" data-modal="equipment">
+                <i class="fas fa-desktop"></i>
             </div>
-
-            <div class="right-content">
-                <h2 class="welcome-text">Log in and let's get started!</h2>
-                <p class="tagline">Welcome to BSU</p>
-
-                <a href="landing.php" class="login-btn">
-                    <i class="fas fa-sign-in-alt"></i>
-                    Login
-                </a>
-
-                <div class="icon-row">
-                    <div class="icon-circle" data-modal="equipment">
-                        <i class="fas fa-desktop"></i>
-                    </div>
-                    <div class="icon-circle" data-modal="maintenance">
-                        <i class="fas fa-tools"></i>
-                    </div>
-                    <div class="icon-circle" data-modal="analytics">
-                        <i class="fas fa-bars"></i>
-                    </div>
-                </div>
+            <div class="icon-circle" data-modal="maintenance">
+                <i class="fas fa-tools"></i>
+            </div>
+            <div class="icon-circle" data-modal="analytics">
+                <i class="fas fa-bars"></i>
             </div>
         </div>
     </div>
-
-    <div id="app-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true">
+    <div id="app-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-hidden="true" style="z-index:10000;">
         <div class="modal">
             <div class="modal-header">
                 <div class="modal-title" id="modal-title">Title</div>
@@ -319,26 +290,22 @@ if (isset($_SESSION["user_id"])) {
             </div>
         </div>
     </div>
-
     <script>
         (function(){
             const modalOverlay = document.getElementById('app-modal');
             const modalTitle = document.getElementById('modal-title');
             const modalBody = document.getElementById('modal-body');
             const modalClose = document.getElementById('modal-close');
-
             function openModal(title, html){
                 modalTitle.textContent = title;
                 modalBody.innerHTML = html;
                 modalOverlay.style.display = 'flex';
                 document.body.style.overflow = 'hidden';
             }
-
             function closeModal(){
                 modalOverlay.style.display = 'none';
                 document.body.style.overflow = 'hidden';
             }
-
             modalClose.addEventListener('click', closeModal);
             modalOverlay.addEventListener('click', (e)=>{
                 if(e.target === modalOverlay){ closeModal(); }
@@ -346,7 +313,6 @@ if (isset($_SESSION["user_id"])) {
             document.addEventListener('keydown', (e)=>{
                 if(e.key === 'Escape'){ closeModal(); }
             });
-
             const modalContent = {
                 equipment: `
                     <h3>Equipment Management</h3>
@@ -380,7 +346,6 @@ if (isset($_SESSION["user_id"])) {
                     <p>Please contact the ICT office or your system administrator.</p>
                 `
             };
-
             document.querySelectorAll('.icon-circle').forEach(el => {
                 el.addEventListener('click', () => {
                     const key = el.getAttribute('data-modal');
@@ -392,12 +357,10 @@ if (isset($_SESSION["user_id"])) {
                     openModal(mapTitle[key], modalContent[key]);
                 });
             });
-
             document.getElementById('btnPrivacy').addEventListener('click', (e)=>{
                 e.preventDefault();
                 openModal('Privacy Policy', modalContent.privacy);
             });
-
             document.getElementById('btnFaq').addEventListener('click', (e)=>{
                 e.preventDefault();
                 openModal('FAQs', modalContent.faqs);

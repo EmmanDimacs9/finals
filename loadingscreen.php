@@ -13,6 +13,7 @@ session_start();
 <head>
   <meta charset="UTF-8">
   <title>Inventory Management System - Loading</title>
+  <link rel="icon" href="images/bsutneu.png" type="image/png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css">
   <style>

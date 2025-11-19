@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             align-items: center;
             justify-content: center;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('BSU.jpg') center/cover no-repeat fixed;
+            background: linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.45)), url('images/BSU.jpg') center/cover no-repeat fixed;
         }
 
         .auth-modal {

@@ -1664,6 +1664,9 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     border-bottom: 1px solid #e0e6ef;
     background: #f5f7fb;
     color: #475467;
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
 .kanban-header i {

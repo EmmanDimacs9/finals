@@ -27,9 +27,9 @@
                 <i class="fas fa-history"></i>
                 <span>History</span>
             </a>
-            <a href="profile.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'profile.php' ? 'active' : ''; ?>">
-                <i class="fas fa-user"></i>
-                <span>Profile</span>
+            <a href="activity_logs.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'activity_logs.php' ? 'active' : ''; ?>">
+                <i class="fas fa-clipboard-list"></i>
+                <span>Activity Logs</span>
             </a>
         </div>
     </nav>

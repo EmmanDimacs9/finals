@@ -78,10 +78,144 @@ if (!empty($_SESSION['profile_image'])) {
             display: flex;
             align-items: center;
             position: relative;
+            gap: 15px;
         }
         
         .header-user i {
             margin-right: 5px;
+        }
+        
+        /* Quick Actions Lightning Icon */
+        .quick-actions-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .quick-actions-trigger {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .quick-actions-trigger:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: scale(1.05);
+        }
+        
+        .quick-actions-trigger i {
+            font-size: 1.3rem;
+            color: white;
+            margin: 0;
+        }
+        
+        .quick-actions-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+            min-width: 220px;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            margin-top: 8px;
+        }
+        
+        .quick-actions-menu.show {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+        
+        .quick-action-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.2s ease;
+            border-bottom: 1px solid #f8f9fa;
+        }
+        
+        .quick-action-item:last-child {
+            border-bottom: none;
+        }
+        
+        .quick-action-item:hover {
+            background-color: #f8f9fa;
+            text-decoration: none;
+            color: #dc3545;
+        }
+        
+        .quick-action-item i {
+            width: 20px;
+            margin-right: 12px;
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .quick-action-item:hover i {
+            color: #dc3545;
+        }
+        
+        .quick-action-item span {
+            flex: 1;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        
+        /* Statistics Modal Styling */
+        .stat-card {
+            background: white;
+            border: 1px solid #e9ecef;
+            border-radius: 12px;
+            padding: 25px 15px;
+            transition: all 0.3s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card-blue i {
+            color: #007bff;
+        }
+        
+        .stat-card-yellow i {
+            color: #ffc107;
+        }
+        
+        .stat-card-green i {
+            color: #28a745;
+        }
+        
+        .stat-card h3 {
+            font-weight: 700;
+            color: #212529;
+            margin: 0;
+        }
+        
+        .stat-card small {
+            font-size: 0.85rem;
+            font-weight: 500;
         }
         
         /* Profile Dropdown */
@@ -468,6 +602,40 @@ if (!empty($_SESSION['profile_image'])) {
                 ICT Service Portal
             </a>
             <div class="header-user">
+                <!-- Quick Actions Lightning Icon -->
+                <div class="quick-actions-dropdown">
+                    <div class="quick-actions-trigger" onclick="toggleQuickActions()" title="Quick Actions">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    
+                    <div class="quick-actions-menu" id="quickActionsMenu">
+                        <a href="#" class="quick-action-item" onclick="openStatisticsModal(); return false;">
+                            <i class="fas fa-chart-pie"></i>
+                            <span>My Statistics</span>
+                        </a>
+                        <a href="mytasks.php" class="quick-action-item">
+                            <i class="fas fa-tasks"></i>
+                            <span>My Tasks</span>
+                        </a>
+                        <a href="inventory.php" class="quick-action-item">
+                            <i class="fas fa-boxes"></i>
+                            <span>Inventory</span>
+                        </a>
+                        <a href="qr.php" class="quick-action-item">
+                            <i class="fas fa-qrcode"></i>
+                            <span>QR Scanner</span>
+                        </a>
+                        <a href="reports.php" class="quick-action-item">
+                            <i class="fas fa-chart-bar"></i>
+                            <span>Reports</span>
+                        </a>
+                        <a href="history.php" class="quick-action-item">
+                            <i class="fas fa-history"></i>
+                            <span>History</span>
+                        </a>
+                    </div>
+                </div>
+                
                 <div class="profile-dropdown">
                     <div class="profile-trigger" onclick="toggleDropdown()">
                         <img src="<?php echo !empty($profileImageUrl) ? $profileImageUrl : 'https://via.placeholder.com/32x32/6c757d/ffffff?text=' . substr($_SESSION['user_name'], 0, 1); ?>" 
@@ -648,10 +816,106 @@ if (!empty($_SESSION['profile_image'])) {
     </div>
 <!-- End Logout Confirm Modal -->
 
+<!-- My Statistics Modal -->
+<div class="modal fade" id="statisticsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-chart-pie"></i> My Statistics
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row text-center g-3">
+                    <div class="col-6">
+                        <div class="stat-card stat-card-blue">
+                            <i class="fas fa-desktop fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-equipment">0</h3>
+                            <small class="text-muted">Equipment Assigned</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-card stat-card-blue">
+                            <i class="fas fa-clipboard-check fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-tasks">0</h3>
+                            <small class="text-muted">Tasks Assigned</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-card stat-card-yellow">
+                            <i class="fas fa-tools fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-maintenance">0</h3>
+                            <small class="text-muted">Maintenance Records</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-card stat-card-green">
+                            <i class="fas fa-calendar fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-month"><?php echo date('M Y'); ?></h3>
+                            <small class="text-muted">Current Month</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- End My Statistics Modal -->
+
     <script>
     function toggleDropdown() {
         const dropdown = document.getElementById('profileDropdown');
+        const quickActionsMenu = document.getElementById('quickActionsMenu');
         dropdown.classList.toggle('show');
+        // Close quick actions menu when opening profile dropdown
+        if (dropdown.classList.contains('show')) {
+            quickActionsMenu.classList.remove('show');
+        }
+    }
+    
+    function toggleQuickActions() {
+        const quickActionsMenu = document.getElementById('quickActionsMenu');
+        const profileDropdown = document.getElementById('profileDropdown');
+        quickActionsMenu.classList.toggle('show');
+        // Close profile dropdown when opening quick actions menu
+        if (quickActionsMenu.classList.contains('show')) {
+            profileDropdown.classList.remove('show');
+        }
+    }
+    
+    function openStatisticsModal() {
+        // Close quick actions menu
+        document.getElementById('quickActionsMenu').classList.remove('show');
+        
+        // Fetch statistics
+        fetch('get_statistics.php')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('stat-equipment').textContent = data.equipment_count || 0;
+                    document.getElementById('stat-tasks').textContent = data.task_count || 0;
+                    document.getElementById('stat-maintenance').textContent = data.maintenance_count || 0;
+                } else {
+                    // Set defaults if fetch fails
+                    document.getElementById('stat-equipment').textContent = '0';
+                    document.getElementById('stat-tasks').textContent = '0';
+                    document.getElementById('stat-maintenance').textContent = '0';
+                }
+                // Show modal
+                const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
+                modal.show();
+            })
+            .catch(err => {
+                console.error('Error fetching statistics:', err);
+                // Set defaults on error
+                document.getElementById('stat-equipment').textContent = '0';
+                document.getElementById('stat-tasks').textContent = '0';
+                document.getElementById('stat-maintenance').textContent = '0';
+                // Show modal anyway
+                const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
+                modal.show();
+            });
     }
     
     function openEditProfile() {
@@ -670,20 +934,29 @@ if (!empty($_SESSION['profile_image'])) {
         modal.show();
     }
     
-    // Close dropdown when clicking outside
+    // Close dropdowns when clicking outside
     document.addEventListener('click', function(event) {
-        const dropdown = document.getElementById('profileDropdown');
-        const trigger = document.querySelector('.profile-trigger');
+        const profileDropdown = document.getElementById('profileDropdown');
+        const profileTrigger = document.querySelector('.profile-trigger');
+        const quickActionsMenu = document.getElementById('quickActionsMenu');
+        const quickActionsTrigger = document.querySelector('.quick-actions-trigger');
         
-        if (!trigger.contains(event.target) && !dropdown.contains(event.target)) {
-            dropdown.classList.remove('show');
+        // Close profile dropdown if clicking outside
+        if (!profileTrigger.contains(event.target) && !profileDropdown.contains(event.target)) {
+            profileDropdown.classList.remove('show');
+        }
+        
+        // Close quick actions menu if clicking outside
+        if (!quickActionsTrigger.contains(event.target) && !quickActionsMenu.contains(event.target)) {
+            quickActionsMenu.classList.remove('show');
         }
     });
     
-    // Close dropdown on escape key
+    // Close dropdowns on escape key
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
             document.getElementById('profileDropdown').classList.remove('show');
+            document.getElementById('quickActionsMenu').classList.remove('show');
         }
     });
     

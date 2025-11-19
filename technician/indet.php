@@ -26,17 +26,6 @@ require_once 'header.php';
                         <i class="fas fa-info-circle"></i> Manage service requests from departments, tasks, and maintenance records
                     </p>
                 </div>
-                <div class="d-flex gap-2 align-items-center">
-                    <button class="btn btn-outline-primary btn-sm" onclick="refreshTasks()" style="border-radius: 8px;">
-                        <i class="fas fa-sync-alt"></i> Refresh
-                    </button>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="autoRefresh" checked style="cursor: pointer;">
-                        <label class="form-check-label" for="autoRefresh" style="cursor: pointer; font-weight: 500;">
-                            Auto Refresh
-                        </label>
-                    </div>
-                </div>
             </div>
 
             <div id="alert-container"></div>
@@ -45,7 +34,7 @@ require_once 'header.php';
                 <!-- Pending -->
                 <div class="col-md-4">
                     <div class="card kanban-column">
-                        <div class="card-header bg-warning text-dark">
+                        <div class="card-header kanban-header kanban-header-pending">
                             <h5 class="mb-0">
                                 <i class="fas fa-clock"></i> Pending
                                 <span class="badge bg-dark ms-2" id="pending-count">0</span>
@@ -60,7 +49,7 @@ require_once 'header.php';
                 <!-- In Progress -->
                 <div class="col-md-4">
                     <div class="card kanban-column">
-                        <div class="card-header bg-info text-white">
+                        <div class="card-header kanban-header kanban-header-progress">
                             <h5 class="mb-0">
                                 <i class="fas fa-cogs"></i> In Progress
                                 <span class="badge bg-light text-dark ms-2" id="in-progress-count">0</span>
@@ -75,7 +64,7 @@ require_once 'header.php';
                 <!-- Completed -->
                 <div class="col-md-4">
                     <div class="card kanban-column">
-                        <div class="card-header bg-success text-white">
+                        <div class="card-header kanban-header kanban-header-complete">
                             <h5 class="mb-0">
                                 <i class="fas fa-check-circle"></i> Completed
                                 <span class="badge bg-light text-dark ms-2" id="completed-count">0</span>
@@ -234,6 +223,73 @@ require_once 'header.php';
   </div>
 </div>
 
+<!-- Maintenance Observe Modal -->
+<div class="modal fade" id="maintenanceObserveModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-info text-white">
+        <h5 class="modal-title"><i class="fas fa-eye"></i> Observe Maintenance Task</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="maintenanceObserveDetails"></div>
+        <div class="alert alert-info mt-3">
+          <i class="fas fa-info-circle"></i> After reviewing the task, assign the appropriate support level (L1-L4) to start working with an SLA timeline.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="openMaintenanceAssignModalFromObserve()">
+          <i class="fas fa-arrow-right"></i> Assign Support Level
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Maintenance Assign Support Level Modal -->
+<div class="modal fade" id="maintenanceAssignModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title"><i class="fas fa-layer-group"></i> Assign Maintenance Support Level & Timeline</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning">
+          <i class="fas fa-exclamation-triangle"></i> Select the difficulty level of this maintenance job. The system will create a deadline based on your choice.
+        </div>
+        <form id="maintenanceAssignForm">
+          <input type="hidden" id="maintenanceAssignId">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Support Level <span class="text-danger">*</span></label>
+              <select class="form-select" id="maintenanceSupportLevel" required>
+                <option value="">Select Support Level</option>
+                <option value="L1" data-time="1 hour and 5 minutes" data-minutes="65">L1 - Basic Support</option>
+                <option value="L2" data-time="2 hours and 5 minutes" data-minutes="125">L2 - Intermediate Support</option>
+                <option value="L3" data-time="2 days and 5 minutes" data-minutes="2885">L3 - Advanced Support</option>
+                <option value="L4" data-time="5 days and 5 minutes" data-minutes="7205">L4 - Expert Support</option>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Processing Time <span class="text-danger">*</span></label>
+              <input type="text" class="form-control" id="maintenanceProcessingTime" placeholder="Auto-filled based on support level" required>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Observation Notes</label>
+            <textarea class="form-control" id="maintenanceObservationNotes" rows="3" placeholder="Add observation notes or planned actions (optional)"></textarea>
+          </div>
+          <button type="submit" class="btn btn-warning w-100">
+            <i class="fas fa-save"></i> Save Support Level & Start Maintenance
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Feedback Preview Modal -->
 <div class="modal fade" id="feedbackPreviewModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl">
@@ -264,10 +320,6 @@ let currentUserId = <?php echo $user_id; ?>;
 document.addEventListener('DOMContentLoaded', function() {
     loadAllItems();
     startAutoRefresh();
-
-    document.getElementById('autoRefresh').addEventListener('change', function() {
-        this.checked ? startAutoRefresh() : stopAutoRefresh();
-    });
 
     // Handle Complete Modal submit
     document.getElementById('completeForm').addEventListener('submit', function(e) {
@@ -325,6 +377,56 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('completeServiceRequestProcessingTime').value = processingTime;
         }
     });
+
+    const maintenanceSupportSelect = document.getElementById('maintenanceSupportLevel');
+    if (maintenanceSupportSelect) {
+        maintenanceSupportSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const processingTime = selectedOption.getAttribute('data-time');
+            if (processingTime) {
+                document.getElementById('maintenanceProcessingTime').value = processingTime;
+            }
+        });
+    }
+
+    const maintenanceAssignForm = document.getElementById('maintenanceAssignForm');
+    if (maintenanceAssignForm) {
+        maintenanceAssignForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const maintenanceId = document.getElementById('maintenanceAssignId').value;
+            const supportLevel = document.getElementById('maintenanceSupportLevel').value;
+            const processingTime = document.getElementById('maintenanceProcessingTime').value;
+            const notes = document.getElementById('maintenanceObservationNotes').value.trim();
+
+            if (!supportLevel || !processingTime) {
+                alert('Please select a support level and processing time.');
+                return;
+            }
+
+            fetch('api/task_webhook.php', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    action: 'assign_maintenance_support_level',
+                    maintenance_id: maintenanceId,
+                    support_level: supportLevel,
+                    processing_time: processingTime,
+                    notes: notes || null
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert('Maintenance support level assigned and deadline set!', 'success');
+                    bootstrap.Modal.getInstance(document.getElementById('maintenanceAssignModal')).hide();
+                    loadAllItems();
+                } else {
+                    showAlert('Failed: ' + data.message, 'danger');
+                }
+            })
+            .catch(() => showAlert('Error assigning maintenance support level', 'danger'));
+        });
+    }
 
     // Handle Update Service Request Form (Assign Support Level)
     document.getElementById('updateServiceRequestForm').addEventListener('submit', function(e) {
@@ -528,30 +630,67 @@ function renderMaintenance(status, records) {
 }
 
 function createMaintenanceElement(record) {
-    const startDate = new Date(record.start_date).toLocaleDateString();
-    const endDate = new Date(record.end_date).toLocaleDateString();
+    const startDate = record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A';
+    const endDate = record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A';
+    const costValue = record.cost ? parseFloat(record.cost) : 0;
+    const formattedCost = costValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const equipmentName = record.equipment_type ? escapeHtml(record.equipment_type) : 'Maintenance Task';
+    const descriptionBlock = record.description
+        ? `<div class="mb-2"><strong><i class="fas fa-clipboard-list"></i> Notes:</strong> ${escapeHtml(record.description)}</div>`
+        : '';
+    const technicianName = record.assigned_to_name ? escapeHtml(record.assigned_to_name) : 'Unassigned';
+    const statusClass = record.status === 'completed' ? 'completed' : '';
+    const timelineInfo = buildMaintenanceTimeline(record);
 
     return `
-    <div class="task-card ${record.status === 'completed' ? 'completed' : ''}" data-maintenance-id="${record.id}">
+    <div class="task-card maintenance-card ${statusClass}" data-maintenance-id="${record.id}">
         <div class="task-header">
-            <h6 class="task-title">🔧 ${escapeHtml(record.maintenance_type)}</h6>
+            <h6 class="task-title">
+                <i class="fas fa-tools text-warning"></i> ${equipmentName}
+            </h6>
             <span class="priority-badge priority-medium">Maintenance</span>
         </div>
-        <p class="task-description">${escapeHtml(record.description || '')}</p>
-        <div class="task-meta">
-            <small class="text-muted">
-                <i class="fas fa-user-cog"></i> ${escapeHtml(record.assigned_to_name)}<br>
-                <i class="fas fa-calendar"></i> ${startDate} → ${endDate}<br>
-                <i class="fas fa-coins"></i> ₱${record.cost || 0}
-            </small>
-        </div>
-        ${record.status !== 'completed' ? `
-            <div class="task-actions">
-                ${record.status === 'pending'
-                    ? `<button class="btn btn-sm btn-success" onclick="updateMaintenanceStatus(${record.id}, 'in_progress')"><i class="fas fa-play"></i> Start</button>`
-                    : `<button class="btn btn-sm btn-success" onclick="openCompleteModal(${record.id}, 'maintenance')"><i class="fas fa-check"></i> Complete</button>`}
+
+        <div class="service-request-info maintenance-info">
+            <div class="mb-2">
+                <strong><i class="fas fa-wrench"></i> Type:</strong> ${escapeHtml(record.maintenance_type)}
             </div>
-        ` : ''}
+            <div class="mb-2">
+                <strong><i class="fas fa-user-cog"></i> Technician:</strong> ${technicianName}
+            </div>
+            ${record.support_level ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-layer-group"></i> Support Level:</strong>
+                <span class="badge bg-info">${escapeHtml(record.support_level)}</span>
+            </div>` : ''}
+            ${record.processing_time ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-clock"></i> Processing Time:</strong> ${escapeHtml(record.processing_time)}
+            </div>` : ''}
+            ${descriptionBlock}
+        </div>
+
+        <div class="task-meta">
+            <div><i class="fas fa-calendar"></i> ${startDate} → ${endDate}</div>
+            <div><i class="fas fa-coins"></i> ₱${formattedCost}</div>
+            ${timelineInfo || ''}
+        </div>
+
+        <div class="task-actions mt-2">
+            <button class="btn btn-sm btn-primary w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
+                <i class="fas fa-eye"></i> Observe Equipment
+            </button>
+            ${record.status !== 'completed' ? `
+            <button class="btn btn-sm btn-warning w-100 mb-2" onclick="openMaintenanceAssignModal(${record.id})">
+                <i class="fas fa-layer-group"></i> Assign Support Level
+            </button>
+            <button class="btn btn-sm btn-success w-100" onclick="openCompleteMaintenanceModal(${record.id})">
+                <i class="fas fa-check-circle"></i> Mark Complete
+            </button>` : `
+            <button class="btn btn-sm btn-success w-100" disabled>
+                <i class="fas fa-check-circle"></i> Completed
+            </button>`}
+        </div>
     </div>`;
 }
 
@@ -663,12 +802,12 @@ function createServiceRequestElement(request) {
     const createdTime = new Date(request.created_at).toLocaleTimeString();
     const statusClass = request.status === 'completed' ? 'completed' : '';
     const isPending = request.status === 'pending' && !request.technician_id;
-    // Fix: Only show action buttons if the current technician is assigned to this request
     const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
     const surveyCount = parseInt(request.survey_count || 0, 10) || 0;
     const surveyAverage = request.survey_average ? parseFloat(request.survey_average).toFixed(1) : null;
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;
     const surveyLatestComment = request.survey_latest_comment ? escapeHtml(request.survey_latest_comment) : '';
+    const timelineInfo = buildServiceRequestTimeline(request);
     
     return `
     <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}">
@@ -727,6 +866,7 @@ function createServiceRequestElement(request) {
             <small class="text-muted">
                 <i class="fas fa-calendar-alt"></i> ${createdDate} ${createdTime}
             </small>
+            ${timelineInfo}
         </div>
         
         ${request.status !== 'completed' ? `
@@ -750,7 +890,7 @@ function createServiceRequestElement(request) {
                     : ''}
             </div>
         ` : `
-            <div class="mt-3">
+            <div class="mt-3 d-grid gap-2">
                 <span class="badge bg-success mb-2"><i class="fas fa-check"></i> Completed</span>
                 ${request.accomplishment ? `
                     <div class="mt-2">
@@ -780,6 +920,9 @@ function createServiceRequestElement(request) {
                         <i class="fas fa-info-circle"></i> Awaiting department survey feedback.
                     </div>
                 `}
+                <button class="btn btn-outline-danger btn-sm" onclick="deleteServiceRequest(${request.id})">
+                    <i class="fas fa-trash"></i> Remove
+                </button>
             </div>
         `}
     </div>`;
@@ -941,6 +1084,7 @@ function acceptServiceRequest(requestId) {
 }
 
 let currentObserveRequestId = null;
+let currentMaintenanceId = null;
 
 function openObserveModal(requestId) {
     currentObserveRequestId = requestId;
@@ -958,6 +1102,10 @@ function openObserveModal(requestId) {
         if (data.success) {
             const request = data.data.find(r => r.id == requestId);
             if (request) {
+                const deadlineString = request.processing_deadline ? new Date(request.processing_deadline).toLocaleString() : null;
+                const timelineStatus = (request.completed_within_sla === null || request.completed_within_sla === undefined)
+                    ? ''
+                    : `<p><strong>Status vs Deadline:</strong> ${parseInt(request.completed_within_sla, 10) === 1 ? 'Completed on time' : 'Completed after deadline'}</p>`;
                 const detailsHtml = `
                     <div class="card">
                         <div class="card-body">
@@ -970,6 +1118,10 @@ function openObserveModal(requestId) {
                             <p><strong>Requirements/Issue:</strong></p>
                             <p class="bg-light p-2 rounded">${escapeHtml(request.requirements || 'N/A')}</p>
                             <p><strong>Date/Time of Request:</strong> ${new Date(request.date_time_call || request.created_at).toLocaleString()}</p>
+                            ${request.support_level ? `<p><strong>Support Level:</strong> ${escapeHtml(request.support_level)}</p>` : ''}
+                            ${request.processing_time ? `<p><strong>Processing Time:</strong> ${escapeHtml(request.processing_time)}</p>` : ''}
+                            ${deadlineString ? `<p><strong>Deadline:</strong> ${deadlineString}</p>` : ''}
+                            ${timelineStatus}
                         </div>
                     </div>
                 `;
@@ -988,6 +1140,257 @@ function openServiceRequestModalFromObserve() {
     if (currentObserveRequestId) {
         openServiceRequestModal(currentObserveRequestId);
     }
+}
+
+function openMaintenanceObserveModal(maintenanceId) {
+    currentMaintenanceId = maintenanceId;
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'get_maintenance_details',
+            maintenance_id: maintenanceId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success && data.record) {
+            const record = data.record;
+            const timelineInfo = buildMaintenanceTimeline(record);
+            const requestDetails = buildMaintenanceRequestDetails(record);
+            const detailsHtml = `
+                <div class="card">
+                    <div class="card-body">
+                        <h6><i class="fas fa-tools"></i> Maintenance Details</h6>
+                        <hr>
+                        <p><strong>Equipment:</strong> ${escapeHtml(record.equipment_type || 'N/A')}</p>
+                        <p><strong>Maintenance Type:</strong> ${escapeHtml(record.maintenance_type || 'N/A')}</p>
+                        <p><strong>Technician:</strong> ${escapeHtml(record.assigned_to_name || 'Unassigned')}</p>
+                        <p><strong>Schedule:</strong> ${formatDateTimeLocal(record.start_date)} - ${formatDateTimeLocal(record.end_date)}</p>
+                        ${record.support_level ? `<p><strong>Support Level:</strong> ${escapeHtml(record.support_level)}</p>` : ''}
+                        ${record.processing_time ? `<p><strong>Processing Time:</strong> ${escapeHtml(record.processing_time)}</p>` : ''}
+                        ${record.description ? `<p><strong>Notes:</strong><br><span class="text-muted small">${escapeHtml(record.description)}</span></p>` : ''}
+                        ${timelineInfo || ''}
+                        ${requestDetails || ''}
+                    </div>
+                </div>
+            `;
+            document.getElementById('maintenanceObserveDetails').innerHTML = detailsHtml;
+            new bootstrap.Modal(document.getElementById('maintenanceObserveModal')).show();
+        } else {
+            showAlert(data.message || 'Maintenance record not found', 'danger');
+        }
+    })
+    .catch(() => showAlert('Error loading maintenance details', 'danger'));
+}
+
+function openMaintenanceAssignModalFromObserve() {
+    const modalEl = document.getElementById('maintenanceObserveModal');
+    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+    if (modalInstance) {
+        modalInstance.hide();
+    }
+    if (currentMaintenanceId) {
+        openMaintenanceAssignModal(currentMaintenanceId);
+    }
+}
+
+function openMaintenanceAssignModal(maintenanceId) {
+    currentMaintenanceId = maintenanceId;
+    document.getElementById('maintenanceAssignId').value = maintenanceId;
+
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'get_maintenance_details',
+            maintenance_id: maintenanceId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success && data.record) {
+            const record = data.record;
+            const supportLevelSelect = document.getElementById('maintenanceSupportLevel');
+            const processingInput = document.getElementById('maintenanceProcessingTime');
+
+            if (record.support_level) {
+                supportLevelSelect.value = record.support_level;
+                const selectedOption = supportLevelSelect.options[supportLevelSelect.selectedIndex];
+                const processingTime = selectedOption ? selectedOption.getAttribute('data-time') : null;
+                processingInput.value = record.processing_time || processingTime || '';
+            } else {
+                supportLevelSelect.value = '';
+                processingInput.value = '';
+            }
+
+            document.getElementById('maintenanceObservationNotes').value = record.description || '';
+        }
+        new bootstrap.Modal(document.getElementById('maintenanceAssignModal')).show();
+    })
+    .catch(() => {
+        new bootstrap.Modal(document.getElementById('maintenanceAssignModal')).show();
+    });
+}
+
+function openCompleteMaintenanceModal(maintenanceId) {
+    openCompleteModal(maintenanceId, 'maintenance');
+}
+
+function formatDateTimeLocal(dateString) {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+        return dateString;
+    }
+    return date.toLocaleString();
+}
+
+function formatDurationFromMs(ms) {
+    if (!ms || ms <= 0) return '0m';
+    const totalMinutes = Math.floor(ms / 60000);
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    return parts.join(' ');
+}
+
+function buildServiceRequestTimeline(request) {
+    if (!request.processing_deadline) {
+        return '';
+    }
+
+    const deadline = new Date(request.processing_deadline);
+    const now = new Date();
+
+    if (request.status === 'completed') {
+        if (request.completed_within_sla === null || request.completed_within_sla === undefined) {
+            return `
+                <div class="timeline-chip chip-success mt-2">
+                    <i class="fas fa-hourglass"></i>
+                    Completed
+                </div>
+                <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(request.processing_deadline)}</small>
+            `;
+        }
+        const onTime = parseInt(request.completed_within_sla, 10) === 1;
+        return `
+            <div class="timeline-chip ${onTime ? 'chip-success' : 'chip-danger'} mt-2">
+                <i class="fas ${onTime ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                ${onTime ? 'Completed on time' : 'Completed after deadline'}
+            </div>
+            <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(request.processing_deadline)}</small>
+        `;
+    }
+
+    const diff = deadline.getTime() - now.getTime();
+    const overdue = diff < 0;
+    const label = overdue ? `Overdue by ${formatDurationFromMs(Math.abs(diff))}` : `Time left: ${formatDurationFromMs(diff)}`;
+
+    return `
+        <div class="timeline-chip ${overdue ? 'chip-danger' : 'chip-success'} mt-2">
+            <i class="fas ${overdue ? 'fa-exclamation-circle' : 'fa-clock'}"></i>
+            ${label}
+        </div>
+        <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(request.processing_deadline)}</small>
+    `;
+}
+
+function buildMaintenanceTimeline(record) {
+    if (!record.processing_deadline) {
+        return '';
+    }
+
+    const deadline = new Date(record.processing_deadline);
+    const now = new Date();
+
+    if (record.status === 'completed') {
+        if (record.completed_within_sla === null || record.completed_within_sla === undefined) {
+            return `
+                <div class="timeline-chip chip-success mt-2">
+                    <i class="fas fa-hourglass"></i>
+                    Completed
+                </div>
+                <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(record.processing_deadline)}</small>
+            `;
+        }
+        const onTime = parseInt(record.completed_within_sla, 10) === 1;
+        return `
+            <div class="timeline-chip ${onTime ? 'chip-success' : 'chip-danger'} mt-2">
+                <i class="fas ${onTime ? 'fa-check-circle' : 'fa-exclamation-circle'}"></i>
+                ${onTime ? 'Completed on time' : 'Completed after deadline'}
+            </div>
+            <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(record.processing_deadline)}</small>
+        `;
+    }
+
+    const diff = deadline.getTime() - now.getTime();
+    const overdue = diff < 0;
+    const label = overdue ? `Overdue by ${formatDurationFromMs(Math.abs(diff))}` : `Time left: ${formatDurationFromMs(diff)}`;
+
+    return `
+        <div class="timeline-chip ${overdue ? 'chip-danger' : 'chip-success'} mt-2">
+            <i class="fas ${overdue ? 'fa-exclamation-circle' : 'fa-clock'}"></i>
+            ${label}
+        </div>
+        <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(record.processing_deadline)}</small>
+    `;
+}
+
+function buildMaintenanceRequestDetails(record) {
+    if (!record.request_form_type && !record.request_form_data) {
+        return '';
+    }
+
+    const items = [];
+    if (record.request_form_type) {
+        items.push(`<p><strong>Original Form:</strong> ${escapeHtml(record.request_form_type)}</p>`);
+    }
+    if (record.request_created_at) {
+        items.push(`<p><strong>Request Submitted:</strong> ${formatDateTimeLocal(record.request_created_at)}</p>`);
+    }
+
+    if (record.request_form_data) {
+        items.push('<div class="mt-3"><strong><i class="fas fa-list"></i> Request Details:</strong><div class="mt-2">');
+        for (const [key, value] of Object.entries(record.request_form_data)) {
+            if (typeof value === 'object') {
+                const subItems = [];
+                Object.entries(value).forEach(([subKey, subValue]) => {
+                    if (typeof subValue === 'string' && subValue.trim() !== '') {
+                        subItems.push(`<div class="text-muted small"><strong>${escapeHtml(formatLabel(subKey))}:</strong> ${escapeHtml(subValue)}</div>`);
+                    }
+                });
+                if (subItems.length > 0) {
+                    items.push(`<div class="mb-2"><strong>${escapeHtml(formatLabel(key))}</strong><div class="ms-2">${subItems.join('')}</div></div>`);
+                }
+            } else if (typeof value === 'string' && value.trim() !== '') {
+                items.push(`<div class="mb-1 text-muted small"><strong>${escapeHtml(formatLabel(key))}:</strong> ${escapeHtml(value)}</div>`);
+            }
+        }
+        items.push('</div></div>');
+    }
+
+    if (items.length === 0) {
+        return '';
+    }
+
+    return `
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6><i class="fas fa-file-alt"></i> Original Request</h6>
+                <hr>
+                ${items.join('')}
+            </div>
+        </div>
+    `;
+}
+
+function formatLabel(key) {
+    return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function openServiceRequestModal(requestId) {
@@ -1191,6 +1594,30 @@ function viewFeedbackPreview(requestId) {
     });
 }
 
+function deleteServiceRequest(requestId) {
+    if (!confirm('Remove this completed service request from the board? This cannot be undone.')) {
+        return;
+    }
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'delete_service_request',
+            request_id: requestId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Service request removed.', 'success');
+            loadAllItems();
+        } else {
+            showAlert('Failed: ' + data.message, 'danger');
+        }
+    })
+    .catch(() => showAlert('Error removing service request', 'danger'));
+}
+
 // ---------------- Helpers ----------------
 function openCompleteModal(id, type) {
     document.getElementById('completeItemId').value = id;
@@ -1215,33 +1642,52 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 .kanban-column { 
     height: 75vh; 
     overflow-y: auto; 
-    border-radius: 12px;
-    transition: all 0.3s ease;
+    border-radius: 14px;
+    border: 1px solid #e2e6ef;
+    background: linear-gradient(180deg, #fdfdff 0%, #f6f7fb 100%);
+    transition: all 0.35s ease;
 }
 
 .kanban-column:hover {
-    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-}
-
-.kanban-column .card-header {
-    border-radius: 12px 12px 0 0;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    box-shadow: 0 12px 32px rgba(149, 157, 165, 0.2);
 }
 
 .kanban-column .card-body {
-    padding: 15px;
+    padding: 18px;
     min-height: 200px;
+}
+
+.kanban-header {
+    border-radius: 12px 12px 0 0;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid #e0e6ef;
+    background: #f5f7fb;
+    color: #475467;
+}
+
+.kanban-header i {
+    color: #4c6ef5;
+}
+
+.kanban-header-pending {
+    background: linear-gradient(90deg, #f6f8fb 0%, #edf1f9 100%);
+}
+.kanban-header-progress {
+    background: linear-gradient(90deg, #f4f7fc 0%, #e7edf9 100%);
+}
+.kanban-header-complete {
+    background: linear-gradient(90deg, #f3f8f5 0%, #e4f0e8 100%);
 }
 
 /* Task Card Styling */
 .task-card { 
     background: #ffffff;
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
-    padding: 18px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    border: 1px solid #e4e8f1;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 6px 18px rgba(82, 96, 112, 0.08);
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -1252,17 +1698,17 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     position: absolute;
     top: 0;
     left: 0;
-    width: 4px;
+    width: 5px;
     height: 100%;
-    background: linear-gradient(180deg, #dc3545 0%, #343a40 100%);
+    background: linear-gradient(180deg, #a5bdfd 0%, #748ffc 100%);
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
 .task-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
-    border-color: #dc3545;
+    box-shadow: 0 14px 32px rgba(82, 96, 112, 0.18);
+    border-color: #c7d3ea;
 }
 
 .task-card:hover::before {
@@ -1270,30 +1716,82 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 }
 
 .task-card.completed { 
-    opacity: 0.85;
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-color: #28a745;
+    opacity: 0.9;
+    background: linear-gradient(135deg, #f9fbf9 0%, #eef5ef 100%);
+    border-color: #a9d6b8;
 }
 
 .task-card.completed::before {
-    background: #28a745;
+    background: #7bc28f;
     opacity: 1;
 }
 
 /* Service Request Card */
 .service-request-card { 
-    border-left: 4px solid #007bff;
-    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+    border-left: 5px solid #9cbffd;
+    background: linear-gradient(135deg, #ffffff 0%, #f3f7ff 100%);
 }
 
 .service-request-card:hover {
-    border-left-width: 6px;
-    background: linear-gradient(135deg, #ffffff 0%, #e3f2fd 100%);
+    border-left-width: 7px;
+    background: linear-gradient(135deg, #ffffff 0%, #e7f0ff 100%);
 }
 
 .service-request-card .service-request-info { 
     font-size: 0.9rem;
     line-height: 1.6;
+    background: rgba(76, 110, 245, 0.05);
+    padding: 12px;
+    border-radius: 10px;
+}
+
+.timeline-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 10px;
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+}
+
+.timeline-chip i {
+    font-size: 0.9rem;
+}
+
+.chip-success {
+    background: #e9f7ef;
+    color: #0f5132;
+}
+
+.chip-danger {
+    background: #fdecea;
+    color: #842029;
+}
+
+.maintenance-card { 
+    border-left: 5px solid #7bd8b4;
+    background: linear-gradient(135deg, #ffffff 0%, #f3fbf8 100%);
+}
+
+.maintenance-card:hover {
+    border-left-width: 7px;
+    background: linear-gradient(135deg, #ffffff 0%, #e6f7ef 100%);
+}
+
+.maintenance-card .maintenance-info {
+    background: rgba(95, 182, 135, 0.08);
+    border-radius: 10px;
+    padding: 12px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}
+
+.maintenance-card .maintenance-info strong {
+    color: #3c8a63;
+    font-weight: 600;
 }
 
 /* Task Header */
@@ -1327,23 +1825,23 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 }
 
 .priority-low {
-    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-    color: #155724;
+    background: linear-gradient(135deg, #e7f5ef 0%, #d4f1e3 100%);
+    color: #2e7d5b;
 }
 
 .priority-medium {
-    background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
-    color: #856404;
+    background: linear-gradient(135deg, #fff6e3 0%, #ffeccc 100%);
+    color: #a1781c;
 }
 
 .priority-high {
-    background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-    color: #721c24;
+    background: linear-gradient(135deg, #fdebec 0%, #f8dfe1 100%);
+    color: #b04b50;
 }
 
 .priority-urgent {
-    background: linear-gradient(135deg, #f5c6cb 0%, #f1aeb5 100%);
-    color: #721c24;
+    background: linear-gradient(135deg, #fbe3e5 0%, #f7d0d4 100%);
+    color: #a12d35;
     animation: pulse 2s infinite;
 }
 
@@ -1404,24 +1902,49 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     padding: 6px 12px;
 }
 
-/* Service Request Info */
-.service-request-info {
-    background: rgba(0, 123, 255, 0.05);
-    padding: 12px;
-    border-radius: 8px;
-    margin-bottom: 10px;
+.task-actions .btn-primary,
+.task-actions .btn-info,
+.task-actions .btn-warning,
+.task-actions .btn-success {
+    border: none;
+    color: #fdfdfd;
+    box-shadow: 0 4px 12px rgba(76, 110, 245, 0.15);
 }
 
+.task-actions .btn-primary,
+.task-actions .btn-info {
+    background: linear-gradient(120deg, #6c8df7 0%, #4f6edb 100%);
+}
+
+.task-actions .btn-warning {
+    background: linear-gradient(120deg, #f6c460 0%, #f3a847 100%);
+    color: #4f2d00;
+}
+
+.task-actions .btn-success {
+    background: linear-gradient(120deg, #5fb687 0%, #4a9f72 100%);
+}
+
+.task-actions .btn-primary:hover,
+.task-actions .btn-info:hover,
+.task-actions .btn-warning:hover,
+.task-actions .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(70, 90, 180, 0.25);
+    opacity: 0.95;
+}
+
+/* Service Request Info */
 .service-request-info strong {
-    color: #007bff;
+    color: #4f6edb;
     font-weight: 600;
 }
 
 .feedback-card {
-    background: linear-gradient(135deg, rgba(13,110,253,0.08) 0%, rgba(13,110,253,0.02) 100%);
-    border-left: 4px solid #0d6efd;
-    border-radius: 10px;
-    box-shadow: inset 0 0 0 1px rgba(13,110,253,0.1);
+    background: linear-gradient(135deg, rgba(79,110,219,0.08) 0%, rgba(79,110,219,0.02) 100%);
+    border-left: 4px solid #94b3ff;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(79,110,219,0.08);
 }
 
 .clickable-feedback {

@@ -12,83 +12,58 @@ $current_page = basename($_SERVER['PHP_SELF']);
         </li>
         
         <li class="nav-item">
-            <a href="equipment.php" class="nav-link <?= $current_page === 'equipment.php' ? 'active' : '' ?>">
-                <i class="fas fa-laptop"></i> Equipment
+            <a href="maintenance.php" class="nav-link <?= $current_page === 'maintenance.php' ? 'active' : '' ?>">
+                <i class="fas fa-tools"></i> Maintenance
             </a>
-        </li>
-        
-        <li class="nav-item">
-            <a href="departments.php" class="nav-link <?= $current_page === 'departments.php' ? 'active' : '' ?>">
-                <i class="fas fa-building"></i> Departments
-            </a>
-        </li>
-        
-        <li class="nav-item">
-            <a href="reports.php" class="nav-link <?= $current_page === 'reports.php' ? 'active' : '' ?>">
-                <i class="fas fa-chart-bar"></i> Reports
-            </a>
-        </li>
-        
-        <li class="nav-item">
-            <a href="request.php" class="nav-link <?= $current_page === 'request.php' ? 'active' : '' ?>">
-                <i class="fas fa-envelope"></i> Requests
-            </a>
-        </li>
-        
-        <!-- ICT Service Management Dropdown -->
-        <li class="nav-item">
-            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['indet.php', 'qr.php', 'history.php', 'mytasks.php', 'profile.php']) ? 'active' : '' ?>" 
-               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['indet.php', 'qr.php', 'history.php', 'mytasks.php', 'profile.php']) ? 'true' : 'false' ?>" 
-               aria-controls="ictServiceMenu">
-                <i class="fas fa-desktop"></i> ICT Service <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
-            </a>
-            <div class="collapse <?= in_array($current_page, ['indet.php', 'qr.php', 'history.php', 'mytasks.php', 'profile.php']) ? 'show' : '' ?>" id="ictServiceMenu">
-                <ul class="nav flex-column ms-3 mt-2">
-                    <li class="nav-item">
-                        <a href="../technician/indet.php" class="nav-link <?= $current_page === 'indet.php' ? 'active' : '' ?>">
-                            <i class="fas fa-tasks"></i> Service Request Board
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../technician/qr.php" class="nav-link <?= $current_page === 'qr.php' ? 'active' : '' ?>">
-                            <i class="fas fa-qrcode"></i> QR Scanner
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../technician/history.php" class="nav-link <?= $current_page === 'history.php' ? 'active' : '' ?>">
-                            <i class="fas fa-history"></i> Service History
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../technician/mytasks.php" class="nav-link <?= $current_page === 'mytasks.php' ? 'active' : '' ?>">
-                            <i class="fas fa-clipboard-list"></i> My Tasks
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a href="../technician/profile.php" class="nav-link <?= $current_page === 'profile.php' ? 'active' : '' ?>">
-                            <i class="fas fa-user-circle"></i> Technician Profile
-                        </a>
-                    </li>
-                </ul>
-            </div>
         </li>
         
         <li class="nav-item">
             <a href="system_logs.php" class="nav-link <?= $current_page === 'system_logs.php' ? 'active' : '' ?>">
-                <i class="fas fa-clipboard-list"></i> System Logs
+                <i class="fas fa-clipboard-list"></i> Logs
             </a>
         </li>
         
+        <!-- ICT Services -->
         <li class="nav-item">
-            <a href="users.php" class="nav-link <?= $current_page === 'users.php' ? 'active' : '' ?>">
-                <i class="fas fa-users"></i> Users
+            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'active' : '' ?>" 
+               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'true' : 'false' ?>" 
+               aria-controls="ictServiceMenu">
+                <i class="fas fa-desktop"></i> ICT Services <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
             </a>
-        </li>
-        
-        <li class="nav-item">
-            <a href="admin_accounts.php" class="nav-link <?= $current_page === 'admin_accounts.php' ? 'active' : '' ?>">
-                <i class="fas fa-user-shield"></i> Admin Accounts
-            </a>
+            <div class="collapse <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'show' : '' ?>" id="ictServiceMenu">
+                <ul class="nav flex-column ms-3 mt-2">
+                    <li class="nav-item">
+                        <a href="prevention_maintenance.php" class="nav-link <?= $current_page === 'prevention_maintenance.php' ? 'active' : '' ?>">
+                            <i class="fas fa-calendar-check"></i> Prevention Maintenance Plan Creation
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="request.php" class="nav-link <?= $current_page === 'request.php' ? 'active' : '' ?>">
+                            <i class="fas fa-wrench"></i> Service Request
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="system_request.php" class="nav-link <?= $current_page === 'system_request.php' ? 'active' : '' ?>">
+                            <i class="fas fa-cog"></i> System Request
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="equipment.php" class="nav-link <?= $current_page === 'equipment.php' ? 'active' : '' ?>">
+                            <i class="fas fa-boxes"></i> Inventory
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="account_creation.php" class="nav-link <?= $current_page === 'account_creation.php' ? 'active' : '' ?>">
+                            <i class="fas fa-user-plus"></i> Account Creation
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="reports.php" class="nav-link <?= $current_page === 'reports.php' ? 'active' : '' ?>">
+                            <i class="fas fa-chart-bar"></i> Reports
+                        </a>
+                    </li>
+                </ul>
+            </div>
         </li>
     </ul>
 </div>

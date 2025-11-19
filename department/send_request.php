@@ -5,6 +5,37 @@ require_once '../includes/notifications.php';
 require_once '../includes/logs.php';
 requireLogin();
 
+if (!function_exists('createRequestRecord')) {
+    function createRequestRecord($conn, $user_id, $form_type, $form_data) {
+        $stmt = $conn->prepare("INSERT INTO requests (user_id, form_type, form_data, status, created_at) VALUES (?, ?, ?, 'Pending', NOW())");
+        if (!$stmt) {
+            error_log("❌ Failed to prepare requests insert: " . $conn->error);
+            return false;
+        }
+
+        $stmt->bind_param("iss", $user_id, $form_type, $form_data);
+        $result = $stmt->execute();
+        if (!$result) {
+            error_log("❌ Failed to execute requests insert: " . $stmt->error);
+            $stmt->close();
+            return false;
+        }
+
+        $insertId = $stmt->insert_id;
+        $stmt->close();
+
+        // Ensure the form type is approved by default so admins see pending status in new modal
+        $statusUpdate = $conn->prepare("UPDATE requests SET status = 'Pending' WHERE id = ?");
+        if ($statusUpdate) {
+            $statusUpdate->bind_param("i", $insertId);
+            $statusUpdate->execute();
+            $statusUpdate->close();
+        }
+
+        return $insertId;
+    }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user_id = $_SESSION['user_id'] ?? 0;
     $form_type = $_POST['form_type'] ?? '';
@@ -55,12 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userName = $_SESSION['user_name'] ?? $client_name;
             logAction($userName, "Created Service Request: {$equipment} - " . substr($requirements, 0, 50));
             
-            // Send notification to technicians/admins
-            if ($user) {
-                notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
+            // Create admin-facing request entry and notify admin
+            $adminRequestId = createRequestRecord($conn, $user_id, $form_type, $form_data);
+            if ($user && $adminRequestId) {
+                notifyAdminNewRequest($adminRequestId, $form_type, $user['full_name'], $user['email']);
             }
             
-            echo "✅ Service request has been submitted successfully. A technician will receive your request shortly.";
+            echo "✅ Service request has been submitted successfully. An admin will review your request shortly.";
         } else {
             echo "❌ Error: " . $stmt->error;
         }
@@ -204,12 +236,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userName = $_SESSION['user_name'] ?? 'Unknown';
             logAction($userName, "Created System Request: {$nameSystem} - " . substr($descRequest, 0, 50));
             
-            // Send notification to technicians/admins
-            if ($user) {
-                notifyTechniciansNewSystemRequest($requestId, $form_type, $user['full_name'], $user['email'], $nameSystem);
+            // Create admin-facing request entry and notify admin
+            $adminRequestId = createRequestRecord($conn, $user_id, $form_type, $form_data);
+            if ($user && $adminRequestId) {
+                notifyAdminNewRequest($adminRequestId, $form_type, $user['full_name'], $user['email']);
             }
             
-            echo "✅ System request has been submitted successfully. A technician will receive your request shortly.";
+            echo "✅ System request has been submitted successfully. An admin will review your request shortly.";
         } else {
             echo "❌ Error: " . $stmt->error;
         }
@@ -218,41 +251,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Insert into requests table with form data (for other form types)
-    $stmt = $conn->prepare("INSERT INTO requests (user_id, form_type, form_data, status, created_at) VALUES (?, ?, ?, 'Pending', NOW())");
-    
-    if (!$stmt) {
-        echo "❌ Error preparing statement: " . $conn->error;
+    $requestId = createRequestRecord($conn, $user_id, $form_type, $form_data);
+    if (!$requestId) {
+        echo "❌ Error: Unable to submit your request at this time.";
         exit;
     }
     
-    $stmt->bind_param("iss", $user_id, $form_type, $form_data);
-
-    if ($stmt->execute()) {
-        $requestId = $conn->insert_id; // Get the ID of the inserted request
-        
-        // Get user details for notification
-        $userQuery = "SELECT full_name, email FROM users WHERE id = ?";
-        $userStmt = $conn->prepare($userQuery);
-        $userStmt->bind_param("i", $user_id);
-        $userStmt->execute();
-        $userResult = $userStmt->get_result();
-        $user = $userResult->fetch_assoc();
-        $userStmt->close();
-        
-        // Log the request creation
-        $userName = $_SESSION['user_name'] ?? 'Unknown';
-        logAction($userName, "Created Request: {$form_type}");
-        
-        // Send notification to admin
-        if ($user) {
-            notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
-        }
-        
-        echo "✅ Request for '{$form_type}' has been sent and is waiting for admin approval.";
-    } else {
-        echo "❌ Error: " . $stmt->error;
+    // Get user details for notification
+    $userQuery = "SELECT full_name, email FROM users WHERE id = ?";
+    $userStmt = $conn->prepare($userQuery);
+    $userStmt->bind_param("i", $user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    $user = $userResult->fetch_assoc();
+    $userStmt->close();
+    
+    // Log the request creation
+    $userName = $_SESSION['user_name'] ?? 'Unknown';
+    logAction($userName, "Created Request: {$form_type}");
+    
+    // Send notification to admin
+    if ($user) {
+        notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
     }
-    $stmt->close();
+    
+    echo "✅ Request for '{$form_type}' has been sent and is waiting for admin approval.";
 } else {
     echo "Invalid request method.";
 }

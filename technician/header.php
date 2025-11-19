@@ -28,7 +28,7 @@ if (!empty($_SESSION['profile_image'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>Technician Portal</title>
+    <title><?php echo isset($page_title) ? $page_title . ' - ' : ''; ?>ICT Service Portal</title>
     <link rel="icon" href="../assets/logo/bsutneu.png" type="image/png">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -464,8 +464,8 @@ if (!empty($_SESSION['profile_image'])) {
     <nav class="header-nav">
         <div class="header-container">
             <a href="indet.php" class="header-brand">
-                <img src="../images/User icon.png" alt="Technician Portal Logo" style="width: 40px; height: 40px; margin-right: 12px;">
-                Technician Portal
+                <img src="../images/User icon.png" alt="ICT Service Portal Logo" style="width: 40px; height: 40px; margin-right: 12px;">
+                ICT Service Portal
             </a>
             <div class="header-user">
                 <div class="profile-dropdown">

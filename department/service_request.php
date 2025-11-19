@@ -46,6 +46,16 @@ $locations = [];
 while ($row = $locationsResult->fetch_assoc()) {
     $locations[] = $row['loc'];
 }
+
+// Fetch technicians for assignment dropdown
+$techniciansQuery = "SELECT id, full_name, email FROM users WHERE role = 'technician' ORDER BY full_name ASC";
+$techniciansResult = $conn->query($techniciansQuery);
+$technicians = [];
+if ($techniciansResult) {
+    while ($row = $techniciansResult->fetch_assoc()) {
+        $technicians[] = $row;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -155,6 +165,38 @@ while ($row = $locationsResult->fetch_assoc()) {
                         </div>
 
                         <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">ICT SRF No.</label>
+                                <input type="text" name="ict_srf_no" class="form-control" id="ictSrfNo" placeholder="Auto-generated" readonly>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Technician Assigned</label>
+                                <select name="technician" class="form-select">
+                                    <option value="">Select Technician (optional)</option>
+                                    <?php foreach ($technicians as $tech): ?>
+                                        <option value="<?= htmlspecialchars($tech['full_name']) ?>">
+                                            <?= htmlspecialchars($tech['full_name']) ?> (<?= htmlspecialchars($tech['email']) ?>)
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label">Required Response Time</label>
+                                <select name="response_time" class="form-select">
+                                    <option value="">Select Response Time</option>
+                                    <option value="5 minutes">5 minutes</option>
+                                    <option value="15 minutes">15 minutes</option>
+                                    <option value="30 minutes">30 minutes</option>
+                                    <option value="1 hour">1 hour</option>
+                                    <option value="2 hours">2 hours</option>
+                                    <option value="4 hours">4 hours</option>
+                                    <option value="Within the day">Within the day</option>
+                                    <option value="Next business day">Next business day</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Office/Department</label>
                                 <select name="office" class="form-select" required>
@@ -172,7 +214,15 @@ while ($row = $locationsResult->fetch_assoc()) {
 
                         <div class="mb-3">
                             <label class="form-label">Equipment/Item Concern</label>
-                            <input type="text" name="equipment" class="form-control" placeholder="e.g., Desktop PC, Printer, Network Connection" required>
+                            <select name="equipment" class="form-select" required>
+                                <option value="">Select Equipment/Item</option>
+                                <option value="Desktop">Desktop</option>
+                                <option value="Laptop">Laptop</option>
+                                <option value="Printer">Printer</option>
+                                <option value="Switch">Switch</option>
+                                <option value="Telephone">Telephone</option>
+                                <option value="Access Point">Access Point</option>
+                            </select>
                         </div>
 
                         <div class="mb-3">
@@ -190,11 +240,25 @@ while ($row = $locationsResult->fetch_assoc()) {
                             </select>
                         </div>
 
-                        <input type="hidden" name="technician" value="">
-                        <input type="hidden" name="ict_srf_no" value="">
-                        <input type="hidden" name="response_time" value="">
-                        <input type="hidden" name="accomplishment" value="">
-                        <input type="hidden" name="remarks" value="">
+                        <div class="section-title mt-4">Technician / Accomplishment Details (optional)</div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Actual Response Time</label>
+                                <input type="text" name="accomp_response" class="form-control" placeholder="e.g., Arrived within 2 hours">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Service Time</label>
+                                <input type="text" name="accomp_service" class="form-control" placeholder="e.g., 1:30 PM - 2:15 PM">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Accomplishment Summary</label>
+                            <textarea name="accomplishment" class="form-control" rows="3" placeholder="Describe the work completed or observations made (optional)"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Technician Remarks</label>
+                            <textarea name="remarks" class="form-control" rows="3" placeholder="Additional notes, recommendations, or follow-up actions"></textarea>
+                        </div>
                     </form>
                 </div>
             </div>
@@ -215,6 +279,19 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('serviceRequestForm');
+    const ictSrfInput = document.getElementById('ictSrfNo');
+
+    // Auto-generate ICT SRF No. (e.g., ICT-SRF-2025-0001)
+    function generateSrfNumber() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const uniquePart = now.getTime().toString().slice(-4); // last 4 digits of timestamp
+        return `ICT-SRF-${year}-${uniquePart}`;
+    }
+
+    if (ictSrfInput) {
+        ictSrfInput.value = generateSrfNumber();
+    }
 
     // Handle PDF Generation with validation
     document.getElementById('generatePdfBtn').addEventListener('click', function() {

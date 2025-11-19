@@ -13,6 +13,72 @@ if (!isLoggedIn() || !isTechnician()) {
 $input = json_decode(file_get_contents('php://input'), true);
 $response = ['success' => false, 'message' => 'Invalid action'];
 
+function ensureMaintenanceColumns($conn) {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+
+    $tableExists = $conn->query("SHOW TABLES LIKE 'maintenance_records'");
+    if (!$tableExists || $tableExists->num_rows === 0) {
+        $checked = true;
+        return;
+    }
+
+    $columns = [
+        'updated_at' => "ALTER TABLE `maintenance_records` ADD COLUMN `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()",
+        'support_level' => "ALTER TABLE `maintenance_records` ADD COLUMN `support_level` varchar(10) DEFAULT NULL",
+        'processing_time' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_time` varchar(255) DEFAULT NULL",
+        'processing_deadline' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_deadline` datetime DEFAULT NULL",
+        'completed_within_sla' => "ALTER TABLE `maintenance_records` ADD COLUMN `completed_within_sla` tinyint(1) DEFAULT NULL",
+        'request_id' => "ALTER TABLE `maintenance_records` ADD COLUMN `request_id` int(11) DEFAULT NULL"
+    ];
+
+    foreach ($columns as $column => $query) {
+        $columnExists = $conn->query("SHOW COLUMNS FROM `maintenance_records` LIKE '{$column}'");
+        if ($columnExists && $columnExists->num_rows === 0) {
+            $conn->query($query);
+        }
+    }
+
+    $checked = true;
+}
+
+function ensureServiceRequestSlaColumns($conn) {
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+
+    $tableExists = $conn->query("SHOW TABLES LIKE 'service_requests'");
+    if (!$tableExists || $tableExists->num_rows === 0) {
+        $checked = true;
+        return;
+    }
+
+    $deadlineColumn = $conn->query("SHOW COLUMNS FROM `service_requests` LIKE 'processing_deadline'");
+    if ($deadlineColumn && $deadlineColumn->num_rows === 0) {
+        $conn->query("ALTER TABLE `service_requests` ADD COLUMN `processing_deadline` DATETIME DEFAULT NULL");
+    }
+
+    $slaColumn = $conn->query("SHOW COLUMNS FROM `service_requests` LIKE 'completed_within_sla'");
+    if ($slaColumn && $slaColumn->num_rows === 0) {
+        $conn->query("ALTER TABLE `service_requests` ADD COLUMN `completed_within_sla` TINYINT(1) DEFAULT NULL");
+    }
+
+    $checked = true;
+}
+
+function getSupportLevelDurationMinutes($level) {
+    return match (strtoupper($level)) {
+        'L1' => 65,                    // 1 hour 5 minutes
+        'L2' => 125,                   // 2 hours 5 minutes
+        'L3' => (2 * 24 * 60) + 5,     // 2 days 5 minutes
+        'L4' => (5 * 24 * 60) + 5,     // 5 days 5 minutes
+        default => null,
+    };
+}
+
 try {
     if (!isset($input['action'])) {
         throw new Exception('Action is required');
@@ -74,6 +140,7 @@ try {
         /* ================= MAINTENANCE ================= */
         case 'get_maintenance':
             $user_id = $input['user_id'] ?? 0;
+            ensureMaintenanceColumns($conn);
 
             $query = "
                 SELECT mr.*, u.full_name as assigned_to_name
@@ -107,25 +174,152 @@ try {
             $response['data'] = $records;
             break;
 
+        case 'get_maintenance_details':
+            if (!isset($input['maintenance_id'])) {
+                throw new Exception('Maintenance ID is required');
+            }
+            ensureMaintenanceColumns($conn);
+            $maintenance_id = intval($input['maintenance_id']);
+
+            $stmt = $conn->prepare("
+                SELECT 
+                    mr.*, 
+                    u.full_name as assigned_to_name,
+                    r.form_type as request_form_type,
+                    r.form_data as request_form_data,
+                    r.created_at as request_created_at
+                FROM maintenance_records mr
+                LEFT JOIN users u ON mr.technician_id = u.id
+                LEFT JOIN requests r ON mr.request_id = r.id
+                WHERE mr.id = ?
+            ");
+            $stmt->bind_param("i", $maintenance_id);
+            $stmt->execute();
+            $result = $stmt->get_result();
+            $record = $result->fetch_assoc();
+
+            if (!$record) {
+                throw new Exception('Maintenance record not found');
+            }
+
+            if ($record['status'] === 'scheduled') {
+                $record['status'] = 'pending';
+            } elseif ($record['status'] === 'in_progress') {
+                $record['status'] = 'in_progress';
+            } elseif ($record['status'] === 'completed') {
+                $record['status'] = 'completed';
+            } else {
+                $record['status'] = 'pending';
+            }
+
+            if (isset($record['request_form_data']) && $record['request_form_data']) {
+                $decoded = json_decode($record['request_form_data'], true);
+                $record['request_form_data'] = is_array($decoded) ? $decoded : null;
+            } else {
+                $record['request_form_data'] = null;
+            }
+
+            $response['success'] = true;
+            $response['record'] = $record;
+            break;
+
+        case 'assign_maintenance_support_level':
+            ensureMaintenanceColumns($conn);
+            if (!isset($input['maintenance_id'], $input['support_level'], $input['processing_time'])) {
+                throw new Exception('Maintenance ID, support level, and processing time are required');
+            }
+
+            $maintenance_id = intval($input['maintenance_id']);
+            $support_level = $input['support_level'];
+            $processing_time = $input['processing_time'];
+            $notes = trim($input['notes'] ?? '');
+
+            $minutes = getSupportLevelDurationMinutes($support_level);
+            if ($minutes === null) {
+                throw new Exception('Invalid support level');
+            }
+            $deadline = date('Y-m-d H:i:s', time() + ($minutes * 60));
+
+            $update_fields = [
+                "support_level = ?",
+                "processing_time = ?",
+                "processing_deadline = ?",
+                "status = 'in_progress'",
+                "updated_at = NOW()"
+            ];
+            $params = [$support_level, $processing_time, $deadline];
+            $types = "sss";
+
+            if ($notes !== '') {
+                $update_fields[] = "description = ?";
+                $params[] = $notes;
+                $types .= "s";
+            }
+
+            $setClause = implode(', ', $update_fields);
+            $stmt = $conn->prepare("UPDATE maintenance_records SET $setClause WHERE id = ?");
+            $params[] = $maintenance_id;
+            $types .= "i";
+            $stmt->bind_param($types, ...$params);
+
+            if ($stmt->execute()) {
+                $response['success'] = true;
+                $response['message'] = 'Support level assigned. Deadline created based on SLA.';
+            } else {
+                throw new Exception('Failed to assign support level: ' . $stmt->error);
+            }
+            break;
+
         case 'update_maintenance_status':
             if (!isset($input['maintenance_id'], $input['new_status'])) {
                 throw new Exception('Maintenance ID and new status are required');
             }
 
+            ensureMaintenanceColumns($conn);
             $maintenance_id = intval($input['maintenance_id']);
             $new_status = $input['new_status'];
             $remarks = $input['remarks'] ?? '';
+            $support_level = $input['support_level'] ?? null;
+            $processing_time = $input['processing_time'] ?? null;
 
-            // Map kanban status to database status
             $db_status = $new_status === 'pending' ? 'scheduled' : ($new_status === 'in_progress' ? 'in_progress' : 'completed');
 
+            $update_fields = ["status = ?"];
+            $params = [$db_status];
+            $types = "s";
+
             if ($new_status === 'completed') {
-                $stmt = $conn->prepare("UPDATE maintenance_records SET status = ?, remarks = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->bind_param("ssi", $db_status, $remarks, $maintenance_id);
-            } else {
-                $stmt = $conn->prepare("UPDATE maintenance_records SET status = ?, updated_at = NOW() WHERE id = ?");
-                $stmt->bind_param("si", $db_status, $maintenance_id);
+                $update_fields[] = "remarks = ?";
+                $params[] = $remarks;
+                $types .= "s";
+            } elseif ($remarks !== '') {
+                $update_fields[] = "remarks = ?";
+                $params[] = $remarks;
+                $types .= "s";
             }
+
+            if ($support_level !== null) {
+                $update_fields[] = "support_level = ?";
+                $params[] = $support_level;
+                $types .= "s";
+            }
+            if ($processing_time !== null) {
+                $update_fields[] = "processing_time = ?";
+                $params[] = $processing_time;
+                $types .= "s";
+            }
+
+            if ($db_status === 'completed') {
+                $update_fields[] = "completed_within_sla = CASE WHEN processing_deadline IS NULL THEN NULL WHEN NOW() <= processing_deadline THEN 1 ELSE 0 END";
+            }
+
+            $update_fields[] = "updated_at = NOW()";
+            $setClause = implode(', ', $update_fields);
+
+            $stmt = $conn->prepare("UPDATE maintenance_records SET $setClause WHERE id = ?");
+            $params[] = $maintenance_id;
+            $types .= "i";
+            $stmt->bind_param($types, ...$params);
 
             if ($stmt->execute()) {
                 $response['success'] = true;
@@ -137,6 +331,7 @@ try {
 
         /* ================= SERVICE REQUESTS ================= */
         case 'get_service_requests':
+            ensureServiceRequestSlaColumns($conn);
             $status = $input['status'] ?? null;
             $technician_id = $input['technician_id'] ?? null;
 
@@ -237,6 +432,7 @@ try {
                 throw new Exception('Request ID and new status are required');
             }
 
+            ensureServiceRequestSlaColumns($conn);
             $request_id = intval($input['request_id']);
             $new_status = $input['new_status'];
             $support_level = $input['support_level'] ?? null;
@@ -251,10 +447,14 @@ try {
             $params = [$db_status];
             $types = "s";
 
+            $deadlineToSet = null;
+            $supportMinutes = null;
+
             if ($support_level !== null) {
                 $update_fields[] = "support_level = ?";
                 $params[] = $support_level;
                 $types .= "s";
+                $supportMinutes = getSupportLevelDurationMinutes($support_level);
             }
             if ($processing_time !== null) {
                 $update_fields[] = "processing_time = ?";
@@ -274,6 +474,14 @@ try {
 
             if ($db_status === 'Completed') {
                 $update_fields[] = "completed_at = NOW()";
+                $update_fields[] = "completed_within_sla = CASE WHEN processing_deadline IS NULL THEN NULL WHEN NOW() <= processing_deadline THEN 1 ELSE 0 END";
+            }
+
+            if ($db_status === 'In Progress' && $supportMinutes !== null) {
+                $deadlineToSet = date('Y-m-d H:i:s', time() + ($supportMinutes * 60));
+                $update_fields[] = "processing_deadline = ?";
+                $params[] = $deadlineToSet;
+                $types .= "s";
             }
 
             $update_fields[] = "updated_at = NOW()";
@@ -322,6 +530,24 @@ try {
                     : 'Service request updated successfully';
             } else {
                 throw new Exception('Failed to update request: ' . $stmt->error);
+            }
+            break;
+
+        case 'delete_service_request':
+            if (!isset($input['request_id'])) {
+                throw new Exception('Request ID is required');
+            }
+
+            $request_id = intval($input['request_id']);
+            $stmt = $conn->prepare("DELETE FROM service_requests WHERE id = ? AND status = 'Completed'");
+            $stmt->bind_param("i", $request_id);
+            $stmt->execute();
+
+            if ($stmt->affected_rows > 0) {
+                $response['success'] = true;
+                $response['message'] = 'Service request removed from board.';
+            } else {
+                throw new Exception('Request not found or not yet completed.');
             }
             break;
 

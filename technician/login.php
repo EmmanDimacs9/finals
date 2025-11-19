@@ -207,9 +207,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="login-container">
         <div class="login-header">
             <div class="logo">
-                <img src="User icon.png" alt="Technician Portal Logo" style="width: 48px; height: 48px;">
+                <img src="User icon.png" alt="ICT Service Portal Logo" style="width: 48px; height: 48px;">
             </div>
-            <h2>Technician Portal</h2>
+            <h2>ICT Service Portal</h2>
             <p>BSU Equipment Management System</p>
         </div>
 

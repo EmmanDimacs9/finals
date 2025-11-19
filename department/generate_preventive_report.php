@@ -67,79 +67,85 @@ class PDF extends TemplatePDF {
     public $revision_no = '';
     public $office_college = '';
     public $fy = '';
+    private $firstPageHeaderDone = false;
     
     function Header() {
-        // Header row height - match the image
-        $headerHeight = 20;
-        $yStart = 10;
-        $xStart = 10;
-        
-        // Logo at top left - Use official BSU logo
-        $logoPaths = [
-            __DIR__ . '/../images/bsutneu.png',
-            __DIR__ . '/../images/Batangas-State-Univer LOGO.jpg',
-            __DIR__ . '/../images/BSU.jpg',
-            __DIR__ . '/../images/Ict logs.png',
-            __DIR__ . '/../images/logo.png'
-        ];
-        
-        $logoPath = null;
-        foreach ($logoPaths as $path) {
-            if (file_exists($path)) {
-                $logoPath = $path;
-                break;
+        // Only show full header on first page
+        if (!$this->firstPageHeaderDone) {
+            // Header row height - match the image
+            $headerHeight = 20;
+            $yStart = 10;
+            $xStart = 10;
+            
+            // Logo at top left - Use official BSU logo
+            $logoPaths = [
+                __DIR__ . '/../images/bsutneu.png',
+                __DIR__ . '/../images/Batangas-State-Univer LOGO.jpg',
+                __DIR__ . '/../images/BSU.jpg',
+                __DIR__ . '/../images/Ict logs.png',
+                __DIR__ . '/../images/logo.png'
+            ];
+            
+            $logoPath = null;
+            foreach ($logoPaths as $path) {
+                if (file_exists($path)) {
+                    $logoPath = $path;
+                    break;
+                }
             }
+            
+            // Draw logo cell with border - same height as other cells
+            $logoCellWidth = 25;
+            $this->SetXY($xStart, $yStart);
+            $this->Cell($logoCellWidth, $headerHeight, '', 1, 0, 'C');
+            
+            // Place logo image centered vertically in the cell
+            if ($logoPath) {
+                $logoSize = 20;
+                $logoX = $xStart + ($logoCellWidth - $logoSize) / 2;
+                $logoY = $yStart + ($headerHeight - $logoSize) / 2;
+                $this->Image($logoPath, $logoX, $logoY, $logoSize);
+            }
+            
+            // Calculate remaining width for text cells
+            $pageWidth = $this->GetPageWidth() - 20; // Total usable width
+            $remainingWidth = $pageWidth - $logoCellWidth;
+            
+            // Divide remaining width into 3 equal segments (Reference No., Effectivity Date, Revision No.)
+            $segmentWidth = $remainingWidth / 3;
+            
+            // Top header row: Reference No. + Effectivity Date + Revision No.
+            $xAfterLogo = $xStart + $logoCellWidth;
+            $this->SetXY($xAfterLogo, $yStart);
+            
+            // Reference No. segment - label and value together, center-aligned
+            $this->SetFont('Arial','',9);
+            $refText = 'Reference No.: ' . $this->reference_no;
+            $this->Cell($segmentWidth, $headerHeight, $refText, 1, 0, 'C');
+            
+            // Effectivity Date segment - label and value together, center-aligned
+            $effText = 'Effectivity Date: ' . $this->effectivity_date;
+            $this->Cell($segmentWidth, $headerHeight, $effText, 1, 0, 'C');
+            
+            // Revision No. segment - label and value together, center-aligned
+            $revText = 'Revision No.: ' . $this->revision_no;
+            $this->Cell($segmentWidth, $headerHeight, $revText, 1, 1, 'C');
+            
+            // Main title: PREVENTIVE MAINTENANCE PLAN - directly connected, no spacing
+            $this->SetFont('Arial','B',13);
+            $this->Cell(0, 12, 'PREVENTIVE MAINTENANCE PLAN', 1, 1, 'C');
+
+            // Office/College and FY row - directly connected, no spacing
+            $this->SetFont('Arial','',10);
+            $this->Cell(30, 6, 'Office/College', 1, 0, 'C');
+            $this->Cell(110, 6, $this->office_college, 1, 0, 'C');
+            $this->Cell(10, 6, 'FY:', 1, 0, 'C');
+            $this->Cell(40, 6, $this->fy, 1, 1, 'C');
+
+            $this->firstPageHeaderDone = true;
         }
         
-        // Draw logo cell with border - same height as other cells
-        $logoCellWidth = 25;
-        $this->SetXY($xStart, $yStart);
-        $this->Cell($logoCellWidth, $headerHeight, '', 1, 0, 'C');
-        
-        // Place logo image centered vertically in the cell
-        if ($logoPath) {
-            $logoSize = 20;
-            $logoX = $xStart + ($logoCellWidth - $logoSize) / 2;
-            $logoY = $yStart + ($headerHeight - $logoSize) / 2;
-            $this->Image($logoPath, $logoX, $logoY, $logoSize);
-        }
-        
-        // Calculate remaining width for text cells
-        $pageWidth = $this->GetPageWidth() - 20; // Total usable width
-        $remainingWidth = $pageWidth - $logoCellWidth;
-        
-        // Divide remaining width into 3 equal segments (Reference No., Effectivity Date, Revision No.)
-        $segmentWidth = $remainingWidth / 3;
-        
-        // Top header row: Reference No. + Effectivity Date + Revision No.
-        $xAfterLogo = $xStart + $logoCellWidth;
-        $this->SetXY($xAfterLogo, $yStart);
-        
-        // Reference No. segment - label and value together, center-aligned
-        $this->SetFont('Arial','',9);
-        $refText = 'Reference No.: ' . $this->reference_no;
-        $this->Cell($segmentWidth, $headerHeight, $refText, 1, 0, 'C');
-        
-        // Effectivity Date segment - label and value together, center-aligned
-        $effText = 'Effectivity Date: ' . $this->effectivity_date;
-        $this->Cell($segmentWidth, $headerHeight, $effText, 1, 0, 'C');
-        
-        // Revision No. segment - label and value together, center-aligned
-        $revText = 'Revision No.: ' . $this->revision_no;
-        $this->Cell($segmentWidth, $headerHeight, $revText, 1, 1, 'C');
-        
-        // Main title: PREVENTIVE MAINTENANCE PLAN - directly connected, no spacing
-        $this->SetFont('Arial','B',13);
-        $this->Cell(0, 12, 'PREVENTIVE MAINTENANCE PLAN', 1, 1, 'C');
-
-        // Office/College and FY row - directly connected, no spacing
-        $this->SetFont('Arial','',10);
-        $this->Cell(30, 6, 'Office/College', 1, 0, 'C');
-        $this->Cell(110, 6, $this->office_college, 1, 0, 'C');
-        $this->Cell(10, 6, 'FY:', 1, 0, 'C');
-        $this->Cell(40, 6, $this->fy, 1, 1, 'C');
-
-        // Table header: Item and months - directly connected, no spacing
+        // Table header: Item and months - show on every page
         $this->SetFont('Arial','B',9);
         $this->Cell(40, 7, 'Item', 1, 0, 'C');
         $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -147,6 +153,13 @@ class PDF extends TemplatePDF {
             $this->Cell(12.5, 7, $m, 1, 0, 'C');
         }
         $this->Ln();
+    }
+    
+    function Footer() {
+        // Page number at bottom
+        $this->SetY(-15);
+        $this->SetFont('Arial','I',8);
+        $this->Cell(0,10,'Page '.$this->PageNo().' of {nb}',0,0,'C');
     }
 }
 
@@ -157,32 +170,28 @@ $pdf->revision_no = $revision_no;
 $pdf->office_college = $office_college;
 $pdf->fy = $fy;
 $pdf->setTitleText(''); // Don't use parent title, we're customizing the header
+$pdf->AliasNbPages(); // Enable page numbering
+$pdf->SetAutoPageBreak(true, 15); // Auto page break with 15mm margin for footer
 $pdf->AddPage();
 
 // --- Table Content ---
 $pdf->SetFont('Arial','',9);
 $rowHeight = 6.5;
-$maxRows   = 15;
-$rowsPrinted = 0;
 $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 foreach ($items as $item) {
+    // Check if we need a new page before adding the row
+    // Account for row height + table header (7mm) that will be added on new page
+    if ($pdf->GetY() + $rowHeight > $pdf->GetPageHeight() - 15) {
+        $pdf->AddPage();
+    }
+    
     $pdf->Cell(40, $rowHeight, $item['description'], 1, 0);
     foreach ($months as $m) {
         $mark = $item['schedule'][$m] ?? '';
         $pdf->Cell(12.5, $rowHeight, $mark, 1, 0, 'C');
     }
     $pdf->Ln();
-    $rowsPrinted++;
-}
-
-while ($rowsPrinted < $maxRows) {
-    $pdf->Cell(40, $rowHeight, '', 1, 0);
-    foreach ($months as $m) {
-        $pdf->Cell(12.5, $rowHeight, '', 1, 0, 'C');
-    }
-    $pdf->Ln();
-    $rowsPrinted++;
 }
 
 $pdf->SetFont('Arial','I',9);

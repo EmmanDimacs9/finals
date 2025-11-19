@@ -15,10 +15,12 @@ $client_name    = $_POST['client_name'] ?? '';
 $technician     = $_POST['technician'] ?? '';
 $office         = $_POST['office'] ?? '';
 $date_time_call = $_POST['date_time_call'] ?? '';
-$response_time  = $_POST['response_time'] ?? '';
-$requirements   = $_POST['requirements'] ?? '';
-$accomplishment = $_POST['accomplishment'] ?? '';
-$remarks        = $_POST['remarks'] ?? '';
+$response_time      = $_POST['response_time'] ?? '';
+$requirements       = $_POST['requirements'] ?? '';
+$accomplishment     = $_POST['accomplishment'] ?? '';
+$remarks            = $_POST['remarks'] ?? '';
+$accomp_response    = $_POST['accomp_response'] ?? '';
+$accomp_service     = $_POST['accomp_service'] ?? '';
 
 $eval_response  = $_POST['eval_response'] ?? '';
 $eval_quality   = $_POST['eval_quality'] ?? '';

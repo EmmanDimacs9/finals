@@ -86,10 +86,10 @@ require_once 'header.php';
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <div>
                     <h2 class="mb-2" style="color: #212529; font-weight: 700;">
-                        <i class="fas fa-user-shield text-danger"></i> Technician Account Management
+                        <i class="fas fa-user-shield text-danger"></i> ICT Account Management
                     </h2>
                     <p class="text-muted mb-0">
-                        <i class="fas fa-info-circle"></i> Create and manage technician accounts
+                        <i class="fas fa-info-circle"></i> Create and manage ICT staff accounts
                     </p>
                 </div>
                 <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addTechnicianModal">

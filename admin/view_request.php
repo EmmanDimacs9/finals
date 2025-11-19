@@ -145,41 +145,40 @@ function displayFormData($data, $form_type) {
                         switch (strtolower($request['form_type'])) {
                             case 'preventivemaintenanceplan':
                             case 'preventive maintenance plan':
-                                $pdfFile = 'PDFS/PreventiveMaintenancePlan/preventivePDF.php';
+                                $pdfFile = '../PDFS/PreventiveMaintenancePlan/preventivePDF.php';
                                 break;
 
-                            // ✅ Best fix — handles all possible index card form types
                             case 'preventivemaintenanceplanindexcard':
                             case 'preventive maintenance plan index card':
                             case 'preventive maintenance index card':
-                                $pdfFile = 'PDFS/PreventiveMaintendancePlanIndexCard/preventivePDFindexcard.php';
+                                $pdfFile = '../PDFS/PreventiveMaintendancePlanIndexCard/preventivePDFindexcard.php';
                                 break;
 
                             case 'isp evaluation':
-                                $pdfFile = 'PDFS/ISPEvaluation/ispEvaluationPDF.php';
+                                $pdfFile = '../PDFS/ISPEvaluation/ispEvaluationPDF.php';
                                 break;
                             case 'website posting request':
                             case 'website posting':
-                                $pdfFile = 'PDFS/WebsitePosting/webpostingPDF.php';
+                                $pdfFile = '../PDFS/WebsitePosting/webpostingPDF.php';
                                 break;
                             case 'ict service request form':    
-                                $pdfFile = 'PDFS/ICTRequestForm/ictServiceRequestPDF.php';
+                                $pdfFile = '../PDFS/ICTRequestForm/ictServiceRequestPDF.php';
                                 break;
                             case 'announcement request':
-                                $pdfFile = 'PDFS/AnnouncementGreetings/announcementPDF.php';
+                                $pdfFile = '../PDFS/AnnouncementGreetings/announcementPDF.php';
                                 break;
                             case 'user account request':
-                                $pdfFile = 'PDFS/UserAccountForm/userAccountRequestPDF.php';
+                                $pdfFile = '../PDFS/UserAccountForm/userAccountRequestPDF.php';
                                 break;
                             case 'posting request':
-                                $pdfFile = 'PDFS/PostingRequestForm/postingRequestPDF.php';
+                                $pdfFile = '../PDFS/PostingRequestForm/postingRequestPDF.php';
                                 break;
                             case 'system request':
-                                $pdfFile = 'PDFS/SystemRequest/systemReqsPDF.php';
+                                $pdfFile = '../PDFS/SystemRequest/systemReqsPDF.php';
                                 break;
 
                             default:
-                                $pdfFile = 'PDFS/PreventiveMaintenancePlan/preventivePDF.php';
+                                $pdfFile = '../PDFS/PreventiveMaintenancePlan/preventivePDF.php';
                         }
                         ?>
                         

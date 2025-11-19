@@ -17,7 +17,7 @@ require_once 'header.php';
 <div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                 <div>
                     <h2 class="mb-2" style="color: #212529; font-weight: 700;">
                         <i class="fas fa-tasks text-danger"></i> ICT Service Request & Task Board
@@ -25,6 +25,16 @@ require_once 'header.php';
                     <p class="text-muted mb-0">
                         <i class="fas fa-info-circle"></i> Manage service requests from departments, tasks, and maintenance records
                     </p>
+                </div>
+                <div class="ms-auto" style="min-width: 220px;">
+                    <label for="requestTypeFilter" class="form-label text-uppercase text-muted small mb-1">
+                        Filter by request type
+                    </label>
+                    <select id="requestTypeFilter" class="form-select form-select-sm">
+                        <option value="all" selected>Show all items</option>
+                        <option value="service_request">Service Requests</option>
+                        <option value="system_request">System Requests</option>
+                    </select>
                 </div>
             </div>
 
@@ -321,6 +331,11 @@ document.addEventListener('DOMContentLoaded', function() {
     loadAllItems();
     startAutoRefresh();
 
+    const filterSelect = document.getElementById('requestTypeFilter');
+    if (filterSelect) {
+        filterSelect.addEventListener('change', applyRequestFilter);
+    }
+
     // Handle Complete Modal submit
     document.getElementById('completeForm').addEventListener('submit', function(e) {
         e.preventDefault();
@@ -511,35 +526,50 @@ document.addEventListener('DOMContentLoaded', function() {
 function startAutoRefresh() { autoRefreshInterval = setInterval(loadAllItems, 10000); }
 function stopAutoRefresh() { clearInterval(autoRefreshInterval); }
 async function loadAllItems() {
-    // Reset counts first
-    ['pending','in_progress','completed'].forEach(status => {
-        document.getElementById(`${status.replace('_','-')}-count`).textContent = '0';
-    });
-    
-    // Load all items and await all promises
     const statuses = ['pending','in_progress','completed'];
     const allPromises = [];
-    
+
     statuses.forEach(status => {
         allPromises.push(loadTasksByStatus(status));
         allPromises.push(loadMaintenanceByStatus(status));
         allPromises.push(loadServiceRequestsByStatus(status));
         allPromises.push(loadSystemRequestsByStatus(status));
     });
-    
-    // Wait for all async operations to complete before updating counts
+
     try {
         await Promise.all(allPromises);
-        
-        // Update counts after all items are loaded and rendered
-        statuses.forEach(status => {
-            const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-            const totalItems = container.querySelectorAll('.task-card').length;
-            document.getElementById(`${status.replace('_','-')}-count`).textContent = totalItems;
-        });
     } catch (error) {
         console.error('Error loading items:', error);
+    } finally {
+        applyRequestFilter();
     }
+}
+
+function updateStatusCounts() {
+    ['pending','in_progress','completed'].forEach(status => {
+        const container = document.getElementById(`${status.replace('_','-')}-tasks`);
+        const badge = document.getElementById(`${status.replace('_','-')}-count`);
+        if (!container || !badge) return;
+        const totalItems = container.querySelectorAll('.task-card:not(.d-none)').length;
+        badge.textContent = totalItems;
+    });
+}
+
+function applyRequestFilter() {
+    const filterSelect = document.getElementById('requestTypeFilter');
+    const selectedType = filterSelect ? filterSelect.value : 'all';
+    const cards = document.querySelectorAll('.task-card');
+
+    cards.forEach(card => {
+        const cardType = card.getAttribute('data-card-type') || 'task';
+        if (selectedType === 'all' || cardType === selectedType) {
+            card.classList.remove('d-none');
+        } else {
+            card.classList.add('d-none');
+        }
+    });
+
+    updateStatusCounts();
 }
 
 // ---------------- TASKS ----------------
@@ -560,16 +590,13 @@ function loadTasksByStatus(status) {
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    // Remove only task cards, not service request cards
-    container.querySelectorAll('.task-card:not([data-service-request-id]):not([data-maintenance-id])').forEach(el => {
-        if (el.hasAttribute('data-task-id')) el.remove();
-    });
+    // Remove only task cards
+    container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
     // Add new task cards
     tasks.forEach(task => {
         const existing = container.querySelector(`[data-task-id="${task.id}"]`);
         if (!existing) {
-            const taskHtml = createTaskElement(task).replace('<div class="task-card', '<div class="task-card" data-task-id="' + task.id + '"');
-            container.insertAdjacentHTML('beforeend', taskHtml);
+            container.insertAdjacentHTML('beforeend', createTaskElement(task));
         }
     });
     // Count will be updated by loadAllItems after all items are loaded
@@ -580,7 +607,7 @@ function createTaskElement(task) {
     const createdDate = new Date(task.created_at).toLocaleDateString();
 
     return `
-    <div class="task-card ${task.status === 'completed' ? 'completed' : ''}">
+    <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" data-task-id="${task.id}" data-card-type="task">
         <div class="task-header">
             <h6 class="task-title">${escapeHtml(task.title)}</h6>
             <span class="priority-badge priority-${task.priority}">${task.priority}</span>
@@ -643,7 +670,7 @@ function createMaintenanceElement(record) {
     const timelineInfo = buildMaintenanceTimeline(record);
 
     return `
-    <div class="task-card maintenance-card ${statusClass}" data-maintenance-id="${record.id}">
+    <div class="task-card maintenance-card ${statusClass}" data-maintenance-id="${record.id}" data-card-type="maintenance">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-tools text-warning"></i> ${equipmentName}
@@ -810,7 +837,7 @@ function createServiceRequestElement(request) {
     const timelineInfo = buildServiceRequestTimeline(request);
     
     return `
-    <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}">
+    <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}" data-card-type="service_request">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-desktop text-primary"></i> ${escapeHtml(request.equipment || 'Service Request')}
@@ -971,7 +998,7 @@ function createSystemRequestElement(request) {
     const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
     
     return `
-    <div class="task-card system-request-card ${statusClass}" data-system-request-id="${request.id}">
+    <div class="task-card system-request-card ${statusClass}" data-system-request-id="${request.id}" data-card-type="system_request">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-cog text-info"></i> ${escapeHtml(request.system_name || 'System Request')}

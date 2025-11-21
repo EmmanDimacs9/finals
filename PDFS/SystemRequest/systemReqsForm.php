@@ -55,59 +55,56 @@
 
           <!-- Name of System -->
           <div class="mb-3">
-            <label for="nameSystem" class="form-label">Name of Existing / Proposed System:</label>
+            <label for="nameSystem" class="form-label">Name of the Existing / Proposed System:</label>
             <input type="text" id="nameSystem" name="nameSystem" class="form-control" required>
           </div>
 
           <!-- Description of Request -->
           <div class="mb-3">
             <label for="descRequest" class="form-label">Description of Request:</label>
-            <textarea id="descRequest" name="descRequest" class="form-control" rows="3" required></textarea>
-          </div>
-
-          <!-- Remarks -->
-          <div class="mb-3">
-            <label for="remarks" class="form-label">Remarks:</label>
-            <input type="text" id="remarks" name="remarks" class="form-control" required>
+            <small class="form-text text-muted">(Detailed functional and/or technical information. Use attachment if necessary)</small>
+            <textarea id="descRequest" name="descRequest" class="form-control" rows="4" required></textarea>
           </div>
 
           <hr>
 
           <!-- Signature Blocks -->
-          <h6>Requested By</h6>
-          <div class="mb-3">
-            <label class="form-label">Name of Requesting Official / Personnel:</label>
-            <input type="text" name="reqByName" class="form-control" required>
-            <label class="form-label mt-2">Designation:</label>
-            <input type="text" name="reqByDesignation" class="form-control" required>
-            <label class="form-label mt-2">Date:</label>
-            <input type="date" name="reqByDate" class="form-control" required>
-          </div>
-
-          <h6>Recommending Approval</h6>
-          <div class="mb-3">
-            <label class="form-label">Name:</label>
-            <input type="text" name="recApprovalName" class="form-control" required>
-            <label class="form-label mt-2">Designation:</label>
-            <input type="text" name="recApprovalDesignation" class="form-control" required>
-            <label class="form-label mt-2">Date:</label>
-            <input type="date" name="recApprovalDate" class="form-control" required>
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <h6>Requested By</h6>
+              <label class="form-label">Name of Requesting Official / Personnel:</label>
+              <input type="text" name="reqByName" class="form-control" required>
+              <label class="form-label mt-2">Designation:</label>
+              <input type="text" name="reqByDesignation" class="form-control" required>
+              <label class="form-label mt-2">Date:</label>
+              <input type="date" name="reqByDate" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <h6>Recommending Approval</h6>
+              <label class="form-label">Name:</label>
+              <input type="text" name="recApprovalName" class="form-control" value="Director, ICT Services" required>
+              <label class="form-label mt-2">Date:</label>
+              <input type="date" name="recApprovalDate" class="form-control" required>
+            </div>
           </div>
 
           <h6>Approved By</h6>
           <div class="mb-3">
             <label class="form-label">Name:</label>
-            <input type="text" name="approvedByName" class="form-control" required>
-            <label class="form-label mt-2">Designation:</label>
-            <input type="text" name="approvedByDesignation" class="form-control" required>
+            <input type="text" name="approvedByName" class="form-control" value="Vice President for Development and External Affairs" required>
             <label class="form-label mt-2">Date:</label>
             <input type="date" name="approvedByDate" class="form-control" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="remarks" class="form-label">Remarks:</label>
+            <textarea id="remarks" name="remarks" class="form-control" rows="2"></textarea>
           </div>
 
           <hr>
 
           <!-- ICT Services Section -->
-          <h6>To be completed by ICT Services</h6>
+          <h6>To be completed by the ICT Services</h6>
           <div class="mb-3">
             <label class="form-label">Date:</label>
             <input type="date" name="ictDate" class="form-control">
@@ -117,24 +114,25 @@
             <textarea name="ictTasks" class="form-control" rows="3"></textarea>
           </div>
 
-          <h6>Work Done By</h6>
-          <div class="mb-3">
-            <label class="form-label">Name:</label>
-            <input type="text" name="ictWorkByName" class="form-control">
-            <label class="form-label mt-2">Designation:</label>
-            <input type="text" name="ictWorkByDesignation" class="form-control">
-            <label class="form-label mt-2">Date:</label>
-            <input type="date" name="ictWorkByDate" class="form-control">
-          </div>
-
-          <h6>Conforme</h6>
-          <div class="mb-3">
-            <label class="form-label">Name:</label>
-            <input type="text" name="ictConformeName" class="form-control">
-            <label class="form-label mt-2">Designation:</label>
-            <input type="text" name="ictConformeDesignation" class="form-control">
-            <label class="form-label mt-2">Date:</label>
-            <input type="date" name="ictConformeDate" class="form-control">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <h6>Work Done By</h6>
+              <label class="form-label">Signature over Printed Name:</label>
+              <input type="text" name="ictWorkByName" class="form-control">
+              <label class="form-label mt-2">Designation:</label>
+              <input type="text" name="ictWorkByDesignation" class="form-control">
+              <label class="form-label mt-2">Date:</label>
+              <input type="date" name="ictWorkByDate" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <h6>Conforme</h6>
+              <label class="form-label">Signature over Printed Name:</label>
+              <input type="text" name="ictConformeName" class="form-control">
+              <label class="form-label mt-2">Designation:</label>
+              <input type="text" name="ictConformeDesignation" class="form-control">
+              <label class="form-label mt-2">Date:</label>
+              <input type="date" name="ictConformeDate" class="form-control">
+            </div>
           </div>
 
         </div>

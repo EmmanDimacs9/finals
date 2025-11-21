@@ -204,6 +204,10 @@ $maintenance_alerts = array_slice($maintenance_alerts, 0, 5);
       options: { responsive: true, scales: { y: { beginAtZero: true } } }
     });
   </script>
+  
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  
   <script>
   // Logout confirmation
   document.addEventListener('click', function(e) {

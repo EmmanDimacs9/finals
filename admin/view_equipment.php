@@ -184,37 +184,7 @@ $maintenance_history = $maintenance_stmt->get_result();
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar">
-                <div class="d-flex flex-column flex-shrink-0 p-3">
-                    <ul class="nav nav-pills flex-column mb-auto">
-                        <li class="nav-item">
-                            <a href="dashboard.php" class="nav-link">
-                                <i class="fas fa-tachometer-alt"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="equipment.php" class="nav-link active">
-                                <i class="fas fa-laptop"></i> Equipment
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="departments.php" class="nav-link">
-                                <i class="fas fa-building"></i> Departments
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="reports.php" class="nav-link">
-                                <i class="fas fa-chart-bar"></i> Reports
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="users.php" class="nav-link">
-                                <i class="fas fa-users"></i> Users
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+            <?php include 'sidebar.php'; ?>
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">

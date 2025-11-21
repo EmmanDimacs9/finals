@@ -8,12 +8,43 @@ requireLogin();
 $message = '';
 $error = '';
 
+// Function to check if asset tag already exists across all equipment tables
+function checkAssetTagExists($conn, $asset_tag, $exclude_table = null, $exclude_id = null) {
+    $tables = ['desktop', 'laptops', 'printers', 'accesspoint', 'switch', 'telephone', 'equipment'];
+    
+    foreach ($tables as $table) {
+        // Skip excluded table/id for edit operations
+        if ($exclude_table && $exclude_table === $table && $exclude_id) {
+            $stmt = $conn->prepare("SELECT id FROM $table WHERE asset_tag = ? AND id != ?");
+            $stmt->bind_param("si", $asset_tag, $exclude_id);
+        } else {
+            $stmt = $conn->prepare("SELECT id FROM $table WHERE asset_tag = ?");
+            $stmt->bind_param("s", $asset_tag);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $stmt->close();
+            return true; // Asset tag exists
+        }
+        $stmt->close();
+    }
+    return false; // Asset tag is unique
+}
+
 // Handle Add Equipment (form POST handled here)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_equipment') {
     $type = $conn->real_escape_string($_POST['type'] ?? '');
     // Generic fields (present in most tables)
     $asset_tag = $conn->real_escape_string($_POST['asset_tag'] ?? '');
-    $property_equipment = $conn->real_escape_string($_POST['property_equipment'] ?? '');
+    
+    // Check for duplicate asset tag
+    if (!empty($asset_tag) && checkAssetTagExists($conn, $asset_tag)) {
+        $error = "Asset tag '$asset_tag' already exists. Please use a unique asset tag.";
+    } else {
+        $property_equipment = $conn->real_escape_string($_POST['property_equipment'] ?? '');
     $department = $conn->real_escape_string($_POST['department'] ?? '');
     $assigned_person = $conn->real_escape_string($_POST['assigned_person'] ?? '');
     $location = $conn->real_escape_string($_POST['location'] ?? '');
@@ -78,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             $stmt->close();
         }
     }
+    } // Close validation else block
 }
 
 // Search and filter setup
@@ -558,7 +590,8 @@ $telephone_where = buildWhere($search, $user_filter, $location_filter);
 
           <div class="col-md-6">
             <label class="form-label">Asset Tag</label>
-            <input type="text" name="asset_tag" class="form-control" required>
+            <input type="text" name="asset_tag" id="asset_tag" class="form-control" required>
+            <div id="asset_tag_feedback" class="invalid-feedback"></div>
           </div>
 
           <div class="col-md-6">
@@ -650,7 +683,43 @@ $telephone_where = buildWhere($search, $user_filter, $location_filter);
 let currentAssetTag = '';
 let currentType = '';
 
+// Function to check asset tag uniqueness
+function checkAssetTagUniqueness(assetTag) {
+  if (!assetTag) return;
+  
+  fetch(`check_asset_tag.php?asset_tag=${encodeURIComponent(assetTag)}`)
+    .then(response => response.json())
+    .then(data => {
+      const input = document.getElementById('asset_tag');
+      const feedback = document.getElementById('asset_tag_feedback');
+      
+      if (data.exists) {
+        input.classList.add('is-invalid');
+        feedback.textContent = 'This asset tag already exists. Please use a unique asset tag.';
+        feedback.style.display = 'block';
+      } else {
+        input.classList.remove('is-invalid');
+        input.classList.add('is-valid');
+        feedback.style.display = 'none';
+      }
+    })
+    .catch(error => {
+      console.error('Error checking asset tag:', error);
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
+  // Asset tag validation on input
+  const assetTagInput = document.getElementById('asset_tag');
+  if (assetTagInput) {
+    let timeout;
+    assetTagInput.addEventListener('input', function() {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        checkAssetTagUniqueness(this.value);
+      }, 500); // Debounce for 500ms
+    });
+  }
   // When a row is clicked → open universal equipment modal
   document.querySelectorAll('.clickable-row').forEach(function(row) {
     row.addEventListener('click', function() {

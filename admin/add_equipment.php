@@ -5,11 +5,42 @@ require_once '../includes/db.php';
 // Check login
 requireLogin();
 
+// Function to check if asset tag already exists across all equipment tables
+function checkAssetTagExists($conn, $asset_tag, $exclude_table = null, $exclude_id = null) {
+    $tables = ['desktop', 'laptops', 'printers', 'accesspoint', 'switch', 'telephone', 'equipment'];
+    
+    foreach ($tables as $table) {
+        // Skip excluded table/id for edit operations
+        if ($exclude_table && $exclude_table === $table && $exclude_id) {
+            $stmt = $conn->prepare("SELECT id FROM $table WHERE asset_tag = ? AND id != ?");
+            $stmt->bind_param("si", $asset_tag, $exclude_id);
+        } else {
+            $stmt = $conn->prepare("SELECT id FROM $table WHERE asset_tag = ?");
+            $stmt->bind_param("s", $asset_tag);
+        }
+        
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $stmt->close();
+            return true; // Asset tag exists
+        }
+        $stmt->close();
+    }
+    return false; // Asset tag is unique
+}
+
 $message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = $_POST['type'];
     $asset_tag = $_POST['asset_tag'];
-    $assigned_person = $_POST['assigned_person'];
+    
+    // Check for duplicate asset tag
+    if (!empty($asset_tag) && checkAssetTagExists($conn, $asset_tag)) {
+        $message = "❌ Error: Asset tag '$asset_tag' already exists. Please use a unique asset tag.";
+    } else {
+        $assigned_person = $_POST['assigned_person'];
     $location = $_POST['location'];
     $remarks = $_POST['remarks'];
     $date_acquired = $_POST['date_acquired'];
@@ -42,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $message = "Invalid equipment type.";
     }
+    } // Close validation else block
 }
 ?>
 <!DOCTYPE html>

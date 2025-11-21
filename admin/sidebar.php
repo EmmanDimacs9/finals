@@ -25,12 +25,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         <!-- ICT Services -->
         <li class="nav-item">
-            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'active' : '' ?>" 
-               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'true' : 'false' ?>" 
+            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php', 'account_creation.php']) ? 'active' : '' ?>" 
+               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php', 'account_creation.php']) ? 'true' : 'false' ?>" 
                aria-controls="ictServiceMenu">
                 <i class="fas fa-desktop"></i> ICT Services <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
             </a>
-            <div class="collapse <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php']) ? 'show' : '' ?>" id="ictServiceMenu">
+            <div class="collapse <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'equipment.php', 'users.php', 'reports.php', 'account_creation.php']) ? 'show' : '' ?>" id="ictServiceMenu">
                 <ul class="nav flex-column ms-3 mt-2">
                     <li class="nav-item">
                         <a href="prevention_maintenance.php" class="nav-link <?= $current_page === 'prevention_maintenance.php' ? 'active' : '' ?>">

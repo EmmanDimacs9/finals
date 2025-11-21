@@ -19,11 +19,9 @@ if (!$user_id) {
 // Get user details
 $stmt = $conn->prepare("
     SELECT u.*, 
-           COUNT(DISTINCT e.id) as equipment_count,
            COUNT(DISTINCT mr.id) as maintenance_count,
            COUNT(DISTINCT t.id) as task_count
     FROM users u
-    LEFT JOIN equipment e ON u.id = e.assigned_to
     LEFT JOIN maintenance_records mr ON u.id = mr.technician_id
     LEFT JOIN tasks t ON u.id = t.assigned_to
     WHERE u.id = ?
@@ -38,22 +36,28 @@ if (!$user) {
     exit();
 }
 
-// Get user's assigned equipment
+// Get user's assigned equipment (using assigned_person field)
+$user_name = $user['full_name'];
 $equipment_stmt = $conn->prepare("
-    SELECT e.*, ec.name as category_name, d.name as department_name
+    SELECT e.*, e.type as category_name
     FROM equipment e
-    LEFT JOIN equipment_categories ec ON e.category_id = ec.id
-    LEFT JOIN departments d ON e.department_id = d.id
-    WHERE e.assigned_to = ?
-    ORDER BY e.created_at DESC
+    WHERE e.assigned_person = ?
+    ORDER BY e.date_acquired DESC
 ");
-$equipment_stmt->bind_param("i", $user_id);
+$equipment_stmt->bind_param("s", $user_name);
 $equipment_stmt->execute();
 $assigned_equipment = $equipment_stmt->get_result();
 
+// Count assigned equipment for statistics
+$equipment_count_stmt = $conn->prepare("SELECT COUNT(*) as count FROM equipment WHERE assigned_person = ?");
+$equipment_count_stmt->bind_param("s", $user_name);
+$equipment_count_stmt->execute();
+$equipment_count_result = $equipment_count_stmt->get_result()->fetch_assoc();
+$user['equipment_count'] = $equipment_count_result['count'];
+
 // Get user's maintenance records
 $maintenance_stmt = $conn->prepare("
-    SELECT mr.*, e.name as equipment_name, e.serial_number
+    SELECT mr.*, e.property_equipment as equipment_name, e.asset_tag
     FROM maintenance_records mr
     LEFT JOIN equipment e ON mr.equipment_id = e.id
     WHERE mr.technician_id = ?
@@ -76,6 +80,18 @@ $tasks_stmt = $conn->prepare("
 $tasks_stmt->bind_param("i", $user_id);
 $tasks_stmt->execute();
 $assigned_tasks = $tasks_stmt->get_result();
+
+// Get recent activity from admin_logs table
+$recent_activity_stmt = $conn->prepare("
+    SELECT action, description, created_at
+    FROM admin_logs
+    WHERE admin_id = ?
+    ORDER BY created_at DESC
+    LIMIT 10
+");
+$recent_activity_stmt->bind_param("i", $user_id);
+$recent_activity_stmt->execute();
+$recent_activity = $recent_activity_stmt->get_result();
 
 ?>
 
@@ -240,42 +256,7 @@ $assigned_tasks = $tasks_stmt->get_result();
     <div class="container-fluid">
         <div class="row">
             <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 sidebar">
-                <div class="d-flex flex-column flex-shrink-0 p-3">
-                    <ul class="nav nav-pills flex-column mb-auto">
-                        <li class="nav-item">
-                            <a href="dashboard.php" class="nav-link">
-                                <i class="fas fa-tachometer-alt"></i> Dashboard
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="equipment.php" class="nav-link">
-                                <i class="fas fa-laptop"></i> Equipment
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="departments.php" class="nav-link">
-                                <i class="fas fa-building"></i> Departments
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="reports.php" class="nav-link">
-                                <i class="fas fa-chart-bar"></i> Reports
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="users.php" class="nav-link active">
-                                <i class="fas fa-users"></i> Users
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a href="activity_log.php" class="nav-link">
-                                <i class="fas fa-history"></i> Activity Log
-                            </a>
-                        </li>
-                    </ul>
-                </div>
-            </div>
+            <?php include 'sidebar.php'; ?>
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
@@ -416,10 +397,10 @@ $assigned_tasks = $tasks_stmt->get_result();
                                         <div class="equipment-item">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div>
-                                                    <h6 class="mb-1"><?php echo htmlspecialchars($equipment['name']); ?></h6>
-                                                    <p class="mb-1 text-muted"><?php echo htmlspecialchars($equipment['category_name']); ?></p>
+                                                    <h6 class="mb-1"><?php echo htmlspecialchars($equipment['property_equipment']); ?></h6>
+                                                    <p class="mb-1 text-muted"><?php echo htmlspecialchars($equipment['category_name'] ?? $equipment['type']); ?></p>
                                                     <small class="text-muted">
-                                                        Serial: <?php echo htmlspecialchars($equipment['serial_number']); ?><br>
+                                                        Asset Tag: <?php echo htmlspecialchars($equipment['asset_tag']); ?><br>
                                                         Location: <?php echo htmlspecialchars($equipment['location']); ?>
                                                     </small>
                                                 </div>
@@ -467,9 +448,8 @@ $assigned_tasks = $tasks_stmt->get_result();
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
                                                 <span class="fw-bold"><?php echo htmlspecialchars($activity['action']); ?></span>
-                                                <?php if ($activity['table_name']): ?>
-                                                    <span class="text-muted"> on </span>
-                                                    <span class="badge bg-info"><?php echo htmlspecialchars($activity['table_name']); ?></span>
+                                                <?php if ($activity['description']): ?>
+                                                    <br><small class="text-muted"><?php echo htmlspecialchars($activity['description']); ?></small>
                                                 <?php endif; ?>
                                             </div>
                                             <div class="activity-time">
@@ -478,16 +458,6 @@ $assigned_tasks = $tasks_stmt->get_result();
                                             </div>
                                         </div>
                                         
-                                        <?php if ($activity['old_values'] || $activity['new_values']): ?>
-                                            <div class="mt-2">
-                                                <?php if ($activity['old_values']): ?>
-                                                    <small class="text-muted">Previous: <?php echo htmlspecialchars(substr($activity['old_values'], 0, 100)); ?>...</small><br>
-                                                <?php endif; ?>
-                                                <?php if ($activity['new_values']): ?>
-                                                    <small class="text-success">New: <?php echo htmlspecialchars(substr($activity['new_values'], 0, 100)); ?>...</small>
-                                                <?php endif; ?>
-                                            </div>
-                                        <?php endif; ?>
                                     </div>
                                 <?php endwhile; ?>
                             </div>

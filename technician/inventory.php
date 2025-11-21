@@ -985,23 +985,23 @@ function downloadQRCode(assetTag) {
 .pagination-wrapper {
     display: inline-flex;
     align-items: center;
-    border: 1px solid #d0d0d0;
+    border: 1px solid #d32f2f;
     border-radius: 6px;
     overflow: hidden;
-    background: white;
+    background: #fff;
 }
 
 .pagination-btn {
     display: inline-block;
-    padding: 10px 16px;
+    padding: 10px 18px;
     text-decoration: none;
-    color: #2196F3;
-    background-color: white;
+    color: #d32f2f;
+    background-color: #fff;
     border: none;
-    border-right: 1px solid #d0d0d0;
+    border-right: 1px solid #f3b5b5;
     transition: all 0.2s ease;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600;
     white-space: nowrap;
     cursor: pointer;
 }
@@ -1016,40 +1016,33 @@ function downloadQRCode(assetTag) {
 }
 
 .pagination-btn.pagination-prev {
-    color: #6c757d;
-    font-weight: 500;
-}
-
-.pagination-btn.pagination-prev:not(.disabled):hover {
-    color: #2196F3;
+    color: #d32f2f;
 }
 
 .pagination-btn.pagination-next {
-    color: #2196F3;
-    font-weight: 500;
+    color: #d32f2f;
 }
 
 .pagination-btn.pagination-number {
-    color: #2196F3;
-    min-width: 40px;
+    min-width: 42px;
     text-align: center;
 }
 
 .pagination-btn.pagination-number.active {
-    background-color: #dc3545;
-    color: white !important;
-    font-weight: 600;
+    background-color: #d32f2f;
+    color: #fff !important;
+    font-weight: 700;
 }
 
 .pagination-btn:hover:not(.disabled):not(.active) {
-    background-color: #f8f9fa;
-    color: #2196F3;
+    background-color: #ffe7e7;
+    color: #b71c1c;
 }
 
 .pagination-btn.pagination-prev:hover:not(.disabled),
 .pagination-btn.pagination-next:hover:not(.disabled) {
-    background-color: #f8f9fa;
-    color: #2196F3;
+    background-color: #ffe7e7;
+    color: #b71c1c;
 }
 
 .pagination-btn.disabled {
@@ -1070,12 +1063,12 @@ function downloadQRCode(assetTag) {
     .pagination-btn {
         padding: 8px 12px;
         font-size: 13px;
-        border-right: 1px solid #d0d0d0;
-        border-bottom: 1px solid #d0d0d0;
+        border-right: 1px solid #f3b5b5;
+        border-bottom: 1px solid #f3b5b5;
     }
     
     .pagination-btn:last-child {
-        border-right: 1px solid #d0d0d0;
+        border-right: 1px solid #f3b5b5;
         border-bottom: none;
         border-radius: 0;
     }
@@ -1089,7 +1082,7 @@ function downloadQRCode(assetTag) {
         width: 100%;
         text-align: center;
         border-right: none;
-        border-bottom: 1px solid #d0d0d0;
+        border-bottom: 1px solid #f3b5b5;
     }
     
     .pagination-btn.pagination-prev {

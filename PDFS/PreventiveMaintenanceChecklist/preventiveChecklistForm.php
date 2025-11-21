@@ -13,6 +13,7 @@ require_once '../../technician/header.php';
 
 // Fetch equipment from database
 $equipment_list = [];
+$equipment_seen = []; // Track unique asset tags to prevent duplicates
 $tables = ['desktop', 'laptops', 'printers', 'accesspoint', 'switch', 'telephone'];
 
 foreach ($tables as $table) {
@@ -30,11 +31,17 @@ foreach ($tables as $table) {
     if ($result !== false && $result) {
         while ($row = $result->fetch_assoc()) {
             if (!empty($row['asset_tag'])) {
-                $equipment_list[] = [
-                    'asset_tag' => $row['asset_tag'],
-                    'location' => $row['location'] ?? '',
-                    'department' => '' // Department not always available, leave empty
-                ];
+                $asset_tag = trim($row['asset_tag']);
+                
+                // Only add if we haven't seen this asset_tag before
+                if (!isset($equipment_seen[$asset_tag])) {
+                    $equipment_seen[$asset_tag] = true;
+                    $equipment_list[] = [
+                        'asset_tag' => $asset_tag,
+                        'location' => $row['location'] ?? '',
+                        'department' => '' // Department not always available, leave empty
+                    ];
+                }
             }
         }
         if (method_exists($result, 'free')) {
@@ -45,6 +52,11 @@ foreach ($tables as $table) {
         // error_log("Query failed for table $table: " . $conn->error);
     }
 }
+
+// Sort equipment list by asset_tag for better organization
+usort($equipment_list, function($a, $b) {
+    return strcmp($a['asset_tag'], $b['asset_tag']);
+});
 ?>
 
 <div class="container-fluid">
@@ -275,7 +287,8 @@ foreach ($tables as $table) {
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label"><strong>Conducted by:</strong></label>
-                                <input type="text" class="form-control" name="conducted_by" required>
+                                <input type="text" class="form-control" name="conducted_by" value="Ronald C. Tud" readonly style="background-color: #e9ecef;">
+                                <small class="text-muted"><i class="fas fa-info-circle"></i> Auto-filled</small>
                                 <label class="form-label mt-2"><strong>Date:</strong></label>
                                 <input type="date" class="form-control" name="conducted_date" value="<?php echo date('Y-m-d'); ?>" required>
                             </div>

@@ -163,112 +163,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['action'])) {
             }
             break;
 
-        case 'upload_qr':
-            if (isset($_FILES['qr_file']) && $_FILES['qr_file']['error'] === 0) {
-                $file_content = file_get_contents($_FILES['qr_file']['tmp_name']);
-                $qr_data = trim($file_content);
-
-                if (!empty($qr_data)) {
-                    $decoded = json_decode($qr_data, true);
-                    if (json_last_error() === JSON_ERROR_NONE && isset($decoded['asset_tag'])) {
-                        $equipment_info = $decoded;
-                        $equipment_info['table_name'] = $decoded['table_name'] ?? '';
-                        $success = '✅ Equipment loaded from uploaded QR file (JSON data)';
-                        
-                        // Fetch service request info (support level) for this equipment
-                        $asset_tag = $equipment_info['asset_tag'] ?? '';
-                        if ($asset_tag) {
-                            $srQuery = "SELECT sr.*, u.full_name as technician_name 
-                                       FROM service_requests sr 
-                                       LEFT JOIN users u ON sr.technician_id = u.id 
-                                       WHERE sr.equipment = ? OR sr.equipment LIKE ? 
-                                       ORDER BY sr.created_at DESC 
-                                       LIMIT 1";
-                            $srStmt = $conn->prepare($srQuery);
-                            $searchPattern = '%' . $asset_tag . '%';
-                            $srStmt->bind_param("ss", $asset_tag, $searchPattern);
-                            $srStmt->execute();
-                            $srResult = $srStmt->get_result();
-                            if ($srResult && $srResult->num_rows > 0) {
-                                $service_request_info = $srResult->fetch_assoc();
-                            }
-                            $srStmt->close();
-                        }
-                        
-                        // Fetch last maintenance record for this equipment
-                        $equipment_id = $equipment_info['id'] ?? null;
-                        $table_name = $equipment_info['table_name'] ?? '';
-                        if ($equipment_id && $table_name) {
-                            $maintQuery = "SELECT mr.*, u.full_name as technician_name 
-                                          FROM maintenance_records mr 
-                                          LEFT JOIN users u ON mr.technician_id = u.id 
-                                          WHERE mr.equipment_id = ? AND mr.equipment_type = ? 
-                                          ORDER BY mr.created_at DESC 
-                                          LIMIT 1";
-                            $maintStmt = $conn->prepare($maintQuery);
-                            $maintStmt->bind_param("is", $equipment_id, $table_name);
-                            $maintStmt->execute();
-                            $maintResult = $maintStmt->get_result();
-                            if ($maintResult && $maintResult->num_rows > 0) {
-                                $maintenance_history = $maintResult->fetch_assoc();
-                            }
-                            $maintStmt->close();
-                        }
-                    } else {
-                        $equipment_info = findEquipment($conn, $qr_data);
-                        if ($equipment_info) {
-                            $success = '✅ Equipment found in ' . htmlspecialchars($equipment_info['table_name']) . ' table';
-                            
-                            // Fetch service request info (support level) for this equipment
-                            $asset_tag = $equipment_info['asset_tag'] ?? '';
-                            if ($asset_tag) {
-                                $srQuery = "SELECT sr.*, u.full_name as technician_name 
-                                           FROM service_requests sr 
-                                           LEFT JOIN users u ON sr.technician_id = u.id 
-                                           WHERE sr.equipment = ? OR sr.equipment LIKE ? 
-                                           ORDER BY sr.created_at DESC 
-                                           LIMIT 1";
-                                $srStmt = $conn->prepare($srQuery);
-                                $searchPattern = '%' . $asset_tag . '%';
-                                $srStmt->bind_param("ss", $asset_tag, $searchPattern);
-                                $srStmt->execute();
-                                $srResult = $srStmt->get_result();
-                                if ($srResult && $srResult->num_rows > 0) {
-                                    $service_request_info = $srResult->fetch_assoc();
-                                }
-                                $srStmt->close();
-                            }
-                            
-                            // Fetch last maintenance record for this equipment
-                            $equipment_id = $equipment_info['id'] ?? null;
-                            $table_name = $equipment_info['table_name'] ?? '';
-                            if ($equipment_id && $table_name) {
-                                $maintQuery = "SELECT mr.*, u.full_name as technician_name 
-                                              FROM maintenance_records mr 
-                                              LEFT JOIN users u ON mr.technician_id = u.id 
-                                              WHERE mr.equipment_id = ? AND mr.equipment_type = ? 
-                                              ORDER BY mr.created_at DESC 
-                                              LIMIT 1";
-                                $maintStmt = $conn->prepare($maintQuery);
-                                $maintStmt->bind_param("is", $equipment_id, $table_name);
-                                $maintStmt->execute();
-                                $maintResult = $maintStmt->get_result();
-                                if ($maintResult && $maintResult->num_rows > 0) {
-                                    $maintenance_history = $maintResult->fetch_assoc();
-                                }
-                                $maintStmt->close();
-                            }
-                        } else {
-                            $error = '❌ No equipment found with this QR code.';
-                        }
-                    }
-                } else {
-                    $error = '⚠️ Could not read QR code from file.';
-                }
-            } else {
-                $error = '⚠️ Please select a valid QR file.';
-            }
-            break;
     }
 }
 
@@ -323,25 +217,6 @@ require_once 'header.php';
                         </div>
                     </div>
 
-                    <!-- Upload QR -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h5><i class="fas fa-upload"></i> Upload QR File</h5>
-                        </div>
-                        <div class="card-body">
-                            <form method="POST" enctype="multipart/form-data">
-                                <input type="hidden" name="action" value="upload_qr">
-                                <div class="mb-3">
-                                    <label class="form-label">Select QR Code File</label>
-                                    <input type="file" class="form-control" name="qr_file" accept=".txt,.json,.xml">
-                                    <small class="text-muted">Supported formats: TXT, JSON, XML</small>
-                                </div>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-upload"></i> Upload and Scan
-                                </button>
-                            </form>
-                        </div>
-                    </div>
 
                     <!-- Manual Entry -->
                     <div class="card">

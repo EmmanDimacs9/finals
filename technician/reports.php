@@ -34,12 +34,56 @@ require_once 'header.php';
                         <div class="report-card-icon">
                             <i class="fas fa-clipboard-check"></i>
                         </div>
-                        <div class="report-card-content">
-                            <h5 class="report-card-title">Preventive Maintenance Checklist</h5>
-                            <p class="report-card-description">Generate preventive maintenance checklist and corrective action record form.</p>
-                        </div>
-                        <div class="report-card-arrow">
-                            <i class="fas fa-arrow-right"></i>
+                        <div class="card-body">
+                            <div class="list-group">
+                                <button class="list-group-item list-group-item-action" onclick="showReportModal('inventory')">
+                                    <i class="fas fa-list text-primary me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Complete Inventory Report</strong><br>
+                                        <small>Generate a comprehensive list of all equipment with detailed information.</small>
+                                    </div>
+                                </button>
+
+                                <button class="list-group-item list-group-item-action" onclick="showReportModal('department')">
+                                    <i class="fas fa-building text-info me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Department Analysis Report</strong><br>
+                                        <small>Equipment distribution and analysis by department.</small>
+                                    </div>
+                                </button>
+
+                                <button class="list-group-item list-group-item-action" onclick="showReportModal('maintenance')">
+                                    <i class="fas fa-tools text-warning me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Maintenance & Status Report</strong><br>
+                                        <small>Maintenance records, schedules, and equipment status reports.</small>
+                                    </div>
+                                </button>
+
+                                <button class="list-group-item list-group-item-action" onclick="showReportModal('incomplete')">
+                                    <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Incomplete Items Report</strong><br>
+                                        <small>Equipment with missing or incomplete information.</small>
+                                    </div>
+                                </button>
+
+                                <button class="list-group-item list-group-item-action" onclick="showReportModal('acquisition')">
+                                    <i class="fas fa-calendar-alt text-secondary me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Acquisition Timeline Report</strong><br>
+                                        <small>Equipment acquisition timeline and purchase history.</small>
+                                    </div>
+                                </button>
+
+                                <button class="list-group-item list-group-item-action" onclick="window.location.href='../PDFS/PreventiveMaintenanceChecklist/preventiveChecklistForm.php'">
+                                    <i class="fas fa-clipboard-check text-success me-2"></i>
+                                    <div class="d-inline-block text-start">
+                                        <strong>Preventive Maintenance Checklist</strong><br>
+                                        <small>Generate preventive maintenance checklist and corrective action record form.</small>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -48,6 +92,36 @@ require_once 'header.php';
     </div>
 </div>
 
+<script>
+function showReportModal(reportType) {
+    const reportMap = {
+        'inventory': 'complete_inventory.php',
+        'department': 'department_report.php',
+        'maintenance': 'maintenance_report.php',
+        'incomplete': 'incomplete_report.php',
+        'acquisition': 'acquisition_report.php',
+    };
+
+    if (!reportMap[reportType]) return;
+
+    // Create a temporary form for immediate download
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '../PDFS/' + reportMap[reportType];
+    form.target = '_blank';
+
+    // Optional hidden input for filters (date/department/etc.)
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'report_type';
+    input.value = reportType;
+    form.appendChild(input);
+
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
+}
+</script>
 
 <style>
 .report-card {

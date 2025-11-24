@@ -95,7 +95,6 @@ while ($row = $departmentsResult->fetch_assoc()) {
                 <a href="depdashboard.php" class="nav-link"><i class="fas fa-user-tie"></i> Depart Head</a>
                 <a href="service_request.php" class="nav-link"><i class="fas fa-desktop"></i> Service Request</a>
                 <a href="system_request.php" class="nav-link active"><i class="fas fa-cog"></i> System Request</a>
-                <a href="preventive_plan.php" class="nav-link"><i class="fas fa-calendar-check"></i> Preventive Maintenance Plan</a>
                 <a href="checklist.php" class="nav-link"><i class="fas fa-clipboard-check"></i> Checklist</a>
                 <a href="remarks.php" class="nav-link"><i class="fas fa-comment-alt"></i> Remarks</a>
                 <a href="dep_activity_logs.php" class="nav-link"><i class="fas fa-history"></i> Activity Logs</a>

@@ -62,5 +62,3 @@ echo json_encode([
 
 
 
-
-

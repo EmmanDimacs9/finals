@@ -92,16 +92,37 @@ try {
             $status = $input['status'] ?? null;
             $user_id = $input['user_id'] ?? 0;
 
-            $query = "
-                SELECT t.*, u.full_name as assigned_to_name
-                FROM tasks t
-                LEFT JOIN users u ON t.assigned_to = u.id
-                WHERE t.assigned_to = ? AND t.status = ?
-                ORDER BY t.created_at DESC
-            ";
+            // Ensure status is lowercase to match database enum
+            $status = strtolower($status);
 
-            $stmt = $conn->prepare($query);
-            $stmt->bind_param("is", $user_id, $status);
+            // For completed tasks, order by updated_at DESC to show most recently completed first
+            // For other statuses, order by created_at DESC
+            if ($status === 'completed') {
+                $query = "
+                    SELECT t.*, u.full_name as assigned_to_name
+                    FROM tasks t
+                    LEFT JOIN users u ON t.assigned_to = u.id
+                    WHERE t.assigned_to = ? AND t.status = 'completed'
+                    ORDER BY t.updated_at DESC
+                ";
+            } else {
+                $query = "
+                    SELECT t.*, u.full_name as assigned_to_name
+                    FROM tasks t
+                    LEFT JOIN users u ON t.assigned_to = u.id
+                    WHERE t.assigned_to = ? AND t.status = ?
+                    ORDER BY t.created_at DESC
+                ";
+            }
+
+            if ($status === 'completed') {
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param("i", $user_id);
+            } else {
+                $stmt = $conn->prepare($query);
+                $stmt->bind_param("is", $user_id, $status);
+            }
+            
             $stmt->execute();
             $result = $stmt->get_result();
 
@@ -167,7 +188,8 @@ try {
                 FROM maintenance_records mr
                 LEFT JOIN users u ON mr.technician_id = u.id
                 WHERE mr.technician_id = ?
-                ORDER BY mr.created_at DESC
+                ORDER BY 
+                    CASE WHEN mr.status = 'completed' THEN mr.updated_at ELSE mr.created_at END DESC
             ";
 
             $stmt = $conn->prepare($query);
@@ -264,7 +286,6 @@ try {
                 "support_level = ?",
                 "processing_time = ?",
                 "processing_deadline = ?",
-                "status = 'in_progress'",
                 "updated_at = NOW()"
             ];
             $params = [$support_level, $processing_time, $deadline];
@@ -297,7 +318,7 @@ try {
 
             if ($stmt->execute()) {
                 $response['success'] = true;
-                $response['message'] = 'Support level assigned. Deadline created based on SLA.';
+                $response['message'] = 'Support level assigned and timer started.';
             } else {
                 throw new Exception('Failed to assign support level: ' . $stmt->error);
             }
@@ -443,6 +464,11 @@ try {
                 $where[] = "(sr.status = 'In Progress' OR sr.status = 'Assigned') AND sr.technician_id = ?";
                 $params[] = $technician_id;
                 $types = 'i';
+            } elseif (($status === 'Completed' || $status === 'completed') && $technician_id) {
+                // Show ALL completed service requests assigned to this technician
+                $where[] = "sr.status = 'Completed' AND sr.technician_id = ?";
+                $params[] = $technician_id;
+                $types = 'i';
             } elseif ($status && $technician_id) {
                 $where[] = "sr.status = ? AND sr.technician_id = ?";
                 $params[] = $status;
@@ -468,7 +494,7 @@ try {
                 FROM service_requests sr
                 LEFT JOIN users u ON sr.user_id = u.id
                 $where_clause
-                ORDER BY sr.created_at DESC
+                ORDER BY sr.updated_at DESC
             ";
 
             $stmt = $conn->prepare($query);
@@ -574,7 +600,8 @@ try {
                 $update_fields[] = "completed_within_sla = CASE WHEN processing_deadline IS NULL THEN NULL WHEN NOW() <= processing_deadline THEN 1 ELSE 0 END";
             }
 
-            if ($db_status === 'In Progress' && $supportMinutes !== null) {
+            // Set deadline when support level is assigned, regardless of status
+            if ($supportMinutes !== null) {
                 $deadlineToSet = date('Y-m-d H:i:s', time() + ($supportMinutes * 60));
                 $update_fields[] = "processing_deadline = ?";
                 $params[] = $deadlineToSet;
@@ -706,6 +733,11 @@ try {
                 $where[] = "sr.status = 'In Progress' AND sr.technician_id = ?";
                 $params[] = $technician_id;
                 $types = 'i';
+            } elseif (($status === 'Completed' || $status === 'completed') && $technician_id) {
+                // Show ALL completed system requests assigned to this technician
+                $where[] = "sr.status = 'Completed' AND sr.technician_id = ?";
+                $params[] = $technician_id;
+                $types = 'i';
             } elseif ($status && $technician_id) {
                 $where[] = "sr.status = ? AND sr.technician_id = ?";
                 $params[] = $status;
@@ -726,7 +758,7 @@ try {
                 FROM system_requests sr
                 LEFT JOIN users u ON sr.user_id = u.id
                 $where_clause
-                ORDER BY sr.created_at DESC
+                ORDER BY sr.updated_at DESC
             ";
 
             $stmt = $conn->prepare($query);

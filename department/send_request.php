@@ -24,7 +24,7 @@ if (!function_exists('createRequestRecord')) {
         $insertId = $stmt->insert_id;
         $stmt->close();
 
-        // Ensure the form type is approved by default so admins see pending status in new modal
+        // Ensure the form type is approved by default so department heads see pending status in new modal
         $statusUpdate = $conn->prepare("UPDATE requests SET status = 'Pending' WHERE id = ?");
         if ($statusUpdate) {
             $statusUpdate->bind_param("i", $insertId);
@@ -86,13 +86,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userName = $_SESSION['user_name'] ?? $client_name;
             logAction($userName, "Created Service Request: {$equipment} - " . substr($requirements, 0, 50));
             
-            // Create admin-facing request entry and notify admin
+            // Create department head-facing request entry and notify department head
             $adminRequestId = createRequestRecord($conn, $user_id, $form_type, $form_data);
             if ($user && $adminRequestId) {
                 notifyAdminNewRequest($adminRequestId, $form_type, $user['full_name'], $user['email']);
             }
             
-            echo "✅ Service request has been submitted successfully. An admin will review your request shortly.";
+            echo "✅ Service request has been submitted successfully. The department head will review your request shortly.";
         } else {
             echo "❌ Error: " . $stmt->error;
         }
@@ -236,13 +236,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $userName = $_SESSION['user_name'] ?? 'Unknown';
             logAction($userName, "Created System Request: {$nameSystem} - " . substr($descRequest, 0, 50));
             
-            // Create admin-facing request entry and notify admin
+            // Create department head-facing request entry and notify department head
             $adminRequestId = createRequestRecord($conn, $user_id, $form_type, $form_data);
             if ($user && $adminRequestId) {
                 notifyAdminNewRequest($adminRequestId, $form_type, $user['full_name'], $user['email']);
             }
             
-            echo "✅ System request has been submitted successfully. An admin will review your request shortly.";
+            echo "✅ System request has been submitted successfully. The department head will review your request shortly.";
         } else {
             echo "❌ Error: " . $stmt->error;
         }
@@ -270,12 +270,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userName = $_SESSION['user_name'] ?? 'Unknown';
     logAction($userName, "Created Request: {$form_type}");
     
-    // Send notification to admin
+    // Send notification to department head
     if ($user) {
         notifyAdminNewRequest($requestId, $form_type, $user['full_name'], $user['email']);
     }
     
-    echo "✅ Request for '{$form_type}' has been sent and is waiting for admin approval.";
+    echo "✅ Request for '{$form_type}' has been sent and is waiting for department head approval.";
 } else {
     echo "Invalid request method.";
 }

@@ -134,7 +134,7 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
             <?php if ($completedRequests->num_rows > 0): ?>
                 <?php while ($request = $completedRequests->fetch_assoc()): ?>
                 <div class="card mb-4">
-                    <div class="card-header bg-success text-white">
+                    <div class="card-header bg-danger text-white">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-0"><i class="fas fa-check-circle"></i> Service Request #<?= $request['id'] ?></h5>

@@ -16,7 +16,7 @@ require_once 'header.php';
     <div class="row">
         <div class="col-12">
             <!-- Header Section -->
-            <div class="mb-5" style="max-width: 1200px; margin: 0 auto;">
+            <div class="mb-5" style="margin: 0; width: 100%;">
                 <div class="d-flex align-items-center mb-3">
                     <div class="me-3" style="width: 48px; height: 48px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);">
                         <i class="fas fa-chart-bar text-white" style="font-size: 24px;"></i>
@@ -38,7 +38,7 @@ require_once 'header.php';
 
                 <!-- Preventive Maintenance Checklist Card -->
                 <div class="row">
-                    <div class="col-12 col-md-8 col-lg-6">
+                    <div class="col-12 col-md-8 col-lg-6" style="max-width: 1200px; margin: 0; padding-left: 0;">
                         <div class="report-card-modern" onclick="window.location.href='../PDFS/PreventiveMaintenanceChecklist/preventiveChecklistForm.php'">
                             <div class="report-card-icon-modern">
                                 <i class="fas fa-clipboard-check"></i>

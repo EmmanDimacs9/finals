@@ -25,6 +25,169 @@ function extractEquipmentName($formData) {
     return 'N/A';
 }
 
+function assignServiceRequestToTechnician($conn, $request, $technician_id) {
+    if (!$request) {
+        return;
+    }
+
+    $userId = intval($request['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return;
+    }
+
+    $formData = json_decode($request['form_data'] ?? '{}', true);
+    $equipment = trim((string)($formData['equipment'] ?? ''));
+    $requirements = trim((string)($formData['requirements'] ?? ''));
+    $createdAt = $request['created_at'] ?? date('Y-m-d H:i:s');
+    $serviceRequestId = null;
+
+    if ($equipment !== '' && $requirements !== '') {
+        $findStmt = $conn->prepare("
+            SELECT id FROM service_requests 
+            WHERE user_id = ? 
+            AND status = 'Pending' 
+            AND technician_id IS NULL
+            AND TRIM(equipment) = TRIM(?) 
+            AND TRIM(requirements) = TRIM(?) 
+            AND created_at >= DATE_SUB(?, INTERVAL 7 DAY)
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        if ($findStmt) {
+            $findStmt->bind_param("isss", $userId, $equipment, $requirements, $createdAt);
+            $findStmt->execute();
+            $result = $findStmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $serviceRequestId = $row['id'];
+            }
+            $findStmt->close();
+        }
+    }
+
+    if (!$serviceRequestId) {
+        $fallbackStmt = $conn->prepare("
+            SELECT id FROM service_requests 
+            WHERE user_id = ? 
+            AND status = 'Pending' 
+            AND technician_id IS NULL
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        if ($fallbackStmt) {
+            $fallbackStmt->bind_param("i", $userId);
+            $fallbackStmt->execute();
+            $result = $fallbackStmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $serviceRequestId = $row['id'];
+            }
+            $fallbackStmt->close();
+        }
+    }
+
+    if (!$serviceRequestId) {
+        $anyPendingStmt = $conn->prepare("
+            SELECT id FROM service_requests 
+            WHERE status = 'Pending' 
+            AND technician_id IS NULL
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        if ($anyPendingStmt) {
+            $anyPendingStmt->execute();
+            $result = $anyPendingStmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $serviceRequestId = $row['id'];
+            }
+            $anyPendingStmt->close();
+        }
+    }
+
+    if ($serviceRequestId) {
+        $updateStmt = $conn->prepare("
+            UPDATE service_requests 
+            SET technician_id = ?, status = 'Pending', updated_at = NOW() 
+            WHERE id = ?
+        ");
+        if ($updateStmt) {
+            $updateStmt->bind_param("ii", $technician_id, $serviceRequestId);
+            $updateStmt->execute();
+            $updateStmt->close();
+        }
+    }
+}
+
+function assignSystemRequestToTechnician($conn, $request, $technician_id) {
+    if (!$request) {
+        return;
+    }
+
+    $userId = intval($request['user_id'] ?? 0);
+    if ($userId <= 0) {
+        return;
+    }
+
+    $formData = json_decode($request['form_data'] ?? '{}', true);
+    $systemName = trim((string)($formData['nameSystem'] ?? $formData['system_name'] ?? ''));
+    $createdAt = $request['created_at'] ?? date('Y-m-d H:i:s');
+    $systemRequestId = null;
+
+    if ($systemName !== '') {
+        $findStmt = $conn->prepare("
+            SELECT id FROM system_requests 
+            WHERE user_id = ? 
+            AND status = 'Pending' 
+            AND (technician_id IS NULL OR technician_id = 0)
+            AND TRIM(system_name) = TRIM(?) 
+            AND created_at >= DATE_SUB(?, INTERVAL 7 DAY)
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        if ($findStmt) {
+            $findStmt->bind_param("iss", $userId, $systemName, $createdAt);
+            $findStmt->execute();
+            $result = $findStmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $systemRequestId = $row['id'];
+            }
+            $findStmt->close();
+        }
+    }
+
+    if (!$systemRequestId) {
+        $fallbackStmt = $conn->prepare("
+            SELECT id FROM system_requests 
+            WHERE user_id = ? 
+            AND status = 'Pending' 
+            AND (technician_id IS NULL OR technician_id = 0)
+            AND created_at >= DATE_SUB(?, INTERVAL 7 DAY)
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        if ($fallbackStmt) {
+            $fallbackStmt->bind_param("is", $userId, $createdAt);
+            $fallbackStmt->execute();
+            $result = $fallbackStmt->get_result();
+            if ($row = $result->fetch_assoc()) {
+                $systemRequestId = $row['id'];
+            }
+            $fallbackStmt->close();
+        }
+    }
+
+    if ($systemRequestId) {
+        $updateStmt = $conn->prepare("
+            UPDATE system_requests 
+            SET technician_id = ?, status = 'Pending', updated_at = NOW() 
+            WHERE id = ?
+        ");
+        if ($updateStmt) {
+            $updateStmt->bind_param("ii", $technician_id, $systemRequestId);
+            $updateStmt->execute();
+            $updateStmt->close();
+        }
+    }
+}
+
 // Handle assignment of maintenance to technician
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'assign_maintenance') {
@@ -88,7 +251,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     'processing_time' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_time` varchar(255) DEFAULT NULL",
                     'processing_deadline' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_deadline` datetime DEFAULT NULL",
                     'completed_within_sla' => "ALTER TABLE `maintenance_records` ADD COLUMN `completed_within_sla` tinyint(1) DEFAULT NULL",
-                    'request_id' => "ALTER TABLE `maintenance_records` ADD COLUMN `request_id` int(11) DEFAULT NULL"
+                    'request_id' => "ALTER TABLE `maintenance_records` ADD COLUMN `request_id` int(11) DEFAULT NULL",
+                    'started_at' => "ALTER TABLE `maintenance_records` ADD COLUMN `started_at` datetime DEFAULT NULL",
+                    'completed_at' => "ALTER TABLE `maintenance_records` ADD COLUMN `completed_at` datetime DEFAULT NULL"
                 ];
                 foreach ($requiredColumns as $column => $alterQuery) {
                     $columnCheck = $conn->query("SHOW COLUMNS FROM `maintenance_records` LIKE '{$column}'");
@@ -104,7 +269,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $insertStmt->bind_param("isisssss", $request_id, $equipment_type, $technician_id, $maintenance_type, $description, $cost, $start_date, $end_date);
 
                 if ($insertStmt->execute()) {
+                    $maintenanceId = $conn->insert_id;
+
+                    $autoStart = $conn->prepare("
+                        UPDATE maintenance_records 
+                        SET status = 'in_progress', started_at = NOW(), updated_at = NOW() 
+                        WHERE id = ?
+                    ");
+                    if ($autoStart) {
+                        $autoStart->bind_param("i", $maintenanceId);
+                        $autoStart->execute();
+                        $autoStart->close();
+                    }
+
                     $message = 'Maintenance assigned to technician successfully!';
+
+                    if (isset($request['form_type'])) {
+                        if ($request['form_type'] === 'ICT Service Request Form') {
+                            assignServiceRequestToTechnician($conn, $request, $technician_id);
+                        } elseif (stripos($request['form_type'], 'System Request') !== false) {
+                            assignSystemRequestToTechnician($conn, $request, $technician_id);
+                        }
+                    }
                 } else {
                     $error = 'Failed to create maintenance record: ' . $insertStmt->error;
                 }
@@ -118,13 +304,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 }
 
-// Fetch approved service and system requests
+// Check if maintenance records table exists
+$maintenanceTableCheck = $conn->query("SHOW TABLES LIKE 'maintenance_records'");
+$maintenanceTableExists = $maintenanceTableCheck && $maintenanceTableCheck->num_rows > 0;
+
+// Fetch approved service and system requests (exclude those already assigned to maintenance)
 $approvedRequestsQuery = "SELECT r.*, u.full_name, u.email 
                           FROM requests r 
                           LEFT JOIN users u ON r.user_id = u.id 
                           WHERE r.status = 'Approved' 
-                          AND (r.form_type = 'ICT Service Request Form' OR r.form_type LIKE '%System Request%')
-                          ORDER BY r.created_at DESC";
+                          AND (r.form_type = 'ICT Service Request Form' OR r.form_type LIKE '%System Request%')";
+if ($maintenanceTableExists) {
+    $approvedRequestsQuery .= " 
+                          AND NOT EXISTS (
+                              SELECT 1 FROM maintenance_records mr 
+                              WHERE mr.request_id = r.id
+                          )";
+}
+$approvedRequestsQuery .= " ORDER BY r.created_at DESC";
 $approvedRequests = $conn->query($approvedRequestsQuery);
 
 // Fetch all technicians
@@ -138,8 +335,7 @@ if ($techniciansResult) {
 }
 
 // Fetch maintenance records
-$checkTable = $conn->query("SHOW TABLES LIKE 'maintenance_records'");
-if ($checkTable && $checkTable->num_rows > 0) {
+if ($maintenanceTableExists) {
     $maintenanceQuery = "SELECT mr.*, u.full_name as technician_name 
                         FROM maintenance_records mr 
                         LEFT JOIN users u ON mr.technician_id = u.id 

@@ -267,7 +267,7 @@ require_once 'header.php';
                         </div>
                         <div class="card-body">
                             <div class="d-grid gap-2">
-                                <a href="kanban.php" class="btn btn-outline-primary">
+                                <a href="indet.php" class="btn btn-outline-primary">
                                     <i class="fas fa-tasks"></i> View All Tasks
                                 </a>
                                 <a href="mytasks.php" class="btn btn-outline-info" style="display:none">

@@ -11,7 +11,7 @@ if (!isLoggedIn() || !isTechnician()) {
 // Inventory has been moved to admin section
 // Redirect to technician dashboard with message
 $_SESSION['info_message'] = 'Inventory management has been moved to the Admin section.';
-header('Location: kanban.php');
+header('Location: indet.php');
 exit();
 
 // Search and filter setup

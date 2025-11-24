@@ -605,7 +605,7 @@ if (!empty($_SESSION['profile_image'])) {
     <!-- Header Navigation -->
     <nav class="header-nav">
         <div class="header-container">
-            <a href="kanban.php" class="header-brand">
+            <a href="indet.php" class="header-brand">
                 <img src="../images/User icon.png" alt="ICT Service Portal Logo" style="width: 40px; height: 40px; margin-right: 12px;">
                 ICT Service Portal
             </a>

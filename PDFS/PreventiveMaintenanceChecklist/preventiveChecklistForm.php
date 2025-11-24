@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const headerBrand = document.querySelector('.header-brand');
     if (headerBrand) {
-        headerBrand.setAttribute('href', techBase + 'kanban.php');
+        headerBrand.setAttribute('href', techBase + 'indet.php');
         const logoImg = headerBrand.querySelector('img');
         if (logoImg) {
             logoImg.setAttribute('src', assetBase + 'images/User icon.png');

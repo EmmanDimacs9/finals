@@ -245,7 +245,7 @@ function notifyTechniciansNewSystemRequest($requestId, $formType, $submittedBy, 
                 </div>
                 
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="' . getBaseUrl() . 'technician/kanban.php" 
+                    <a href="' . getBaseUrl() . 'technician/indet.php"
                        style="background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block;">
                         View Request
                     </a>

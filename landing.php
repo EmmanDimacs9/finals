@@ -7,7 +7,7 @@ if (isset($_SESSION['user_id'])) {
 	if($_SESSION['user_role'] == 'admin'){
 		header('Location: admin/dashboard.php');
 	} elseif($_SESSION['user_role'] == 'technician'){
-		header('Location: technician/kanban.php');
+		header('Location: technician/indet.php');
 	} elseif($_SESSION['user_role'] == 'department_admin'){ 
 		header('Location: department/depdashboard.php');
 	}
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     logAdminAction($user['id'], $user['full_name'], "Login", "Admin logged in");
                     header('Location: admin/dashboard.php');
                 } elseif($user['role'] == 'technician'){
-                    header('Location: technician/kanban.php');
+                    header('Location: technician/indet.php');
                 } elseif($user['role'] == 'department_admin'){ 
                     header('Location: department/depdashboard.php');
                 }

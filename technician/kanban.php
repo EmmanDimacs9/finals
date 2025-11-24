@@ -1106,6 +1106,7 @@ function sendTaskStatusUpdate(id, status, remarks = '') {
         if (data.success) {
             showAlert('Task updated!', 'success');
             loadAllItems();
+            loadStatistics();
         } else {
             showAlert('Failed: ' + data.message, 'danger');
         }
@@ -1131,6 +1132,7 @@ function deleteTask(taskId) {
         if (data.success) {
             showAlert('Task removed from board.', 'success');
             loadAllItems();
+            loadStatistics();
         } else {
             showAlert('Failed: ' + data.message, 'danger');
         }
@@ -1168,6 +1170,7 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '', endTime = '') {
         if (data.success) {
             showAlert('Maintenance updated!', 'success');
             loadAllItems();
+            loadStatistics();
         } else {
             showAlert('Failed: ' + data.message, 'danger');
         }
@@ -1190,6 +1193,7 @@ function acceptMaintenanceRequest(maintenanceId) {
             if (data.success) {
                 showAlert('Maintenance request accepted and moved to In Progress!', 'success');
                 loadAllItems();
+                loadStatistics();
             } else {
                 showAlert('Failed: ' + data.message, 'danger');
             }
@@ -1216,6 +1220,7 @@ function deleteMaintenance(maintenanceId) {
         if (data.success) {
             showAlert('Maintenance record removed from board.', 'success');
             loadAllItems();
+            loadStatistics();
         } else {
             showAlert('Failed: ' + data.message, 'danger');
         }
@@ -1523,6 +1528,7 @@ function acceptSystemRequest(requestId) {
             if (data.success) {
                 showAlert('System request accepted and moved to In Progress!', 'success');
                 loadAllItems();
+                loadStatistics();
             } else {
                 showAlert('Failed: ' + data.message, 'danger');
             }
@@ -1553,6 +1559,7 @@ function acceptServiceRequest(requestId) {
             if (data.success) {
                 showAlert('Service request accepted and moved to In Progress!', 'success');
                 loadAllItems();
+                loadStatistics();
             } else {
                 showAlert('Failed: ' + data.message, 'danger');
             }
@@ -2230,6 +2237,7 @@ function deleteServiceRequest(requestId) {
         if (data.success) {
             showAlert('Service request removed.', 'success');
             loadAllItems();
+            loadStatistics();
         } else {
             showAlert('Failed: ' + data.message, 'danger');
         }

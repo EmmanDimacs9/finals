@@ -13,39 +13,57 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'technician') {
 $user_id = $_SESSION['user_id'];
 
 // Get user statistics
-$stats_query = "
-    SELECT 
-        ( 
-            SELECT COUNT(*) FROM (
-                SELECT assigned_person FROM desktop WHERE assigned_person = ?
-                UNION ALL
-                SELECT assigned_person FROM laptops WHERE assigned_person = ?
-                UNION ALL
-                SELECT assigned_person FROM printers WHERE assigned_person = ?
-                UNION ALL
-                SELECT assigned_person FROM accesspoint WHERE assigned_person = ?
-                UNION ALL
-                SELECT assigned_person FROM `switch` WHERE assigned_person = ?
-                UNION ALL
-                SELECT assigned_person FROM telephone WHERE assigned_person = ?
-            ) AS eq
-        ) AS equipment_count,
-        (SELECT COUNT(*) FROM tasks WHERE assigned_to = ?) AS task_count,
-        (SELECT COUNT(*) FROM history WHERE user_id = ?) AS maintenance_count
-";
+$equipment_count = 0;
+$equipmentStmt = $conn->prepare("
+    SELECT COUNT(DISTINCT equipment_type) AS cnt
+    FROM maintenance_records
+    WHERE technician_id = ?
+");
+if ($equipmentStmt) {
+    $equipmentStmt->bind_param("i", $user_id);
+    $equipmentStmt->execute();
+    $result = $equipmentStmt->get_result()->fetch_assoc();
+    $equipment_count = (int)($result['cnt'] ?? 0);
+    $equipmentStmt->close();
+}
 
-$stmt = $conn->prepare($stats_query);
-$stmt->bind_param("ssssssii", $user_id, $user_id, $user_id, $user_id, $user_id, $user_id, $user_id, $user_id);
-$stmt->execute();
-$stats = $stmt->get_result()->fetch_assoc();
-$stmt->close();
+$task_count = 0;
+$taskStmt = $conn->prepare("
+    SELECT 
+        (
+            (SELECT COUNT(*) FROM tasks WHERE assigned_to = ? AND status = 'pending') +
+            (SELECT COUNT(*) FROM service_requests WHERE technician_id = ? AND status = 'Pending') +
+            (SELECT COUNT(*) FROM system_requests WHERE technician_id = ? AND status = 'Pending')
+        ) AS total_tasks
+");
+if ($taskStmt) {
+    $taskStmt->bind_param("iii", $user_id, $user_id, $user_id);
+    $taskStmt->execute();
+    $result = $taskStmt->get_result()->fetch_assoc();
+    $task_count = (int)($result['total_tasks'] ?? 0);
+    $taskStmt->close();
+}
+
+$maintenance_count = 0;
+$maintenanceStmt = $conn->prepare("
+    SELECT COUNT(*) AS cnt
+    FROM maintenance_records
+    WHERE technician_id = ? AND status = 'scheduled'
+");
+if ($maintenanceStmt) {
+    $maintenanceStmt->bind_param("i", $user_id);
+    $maintenanceStmt->execute();
+    $result = $maintenanceStmt->get_result()->fetch_assoc();
+    $maintenance_count = (int)($result['cnt'] ?? 0);
+    $maintenanceStmt->close();
+}
 
 header('Content-Type: application/json');
 echo json_encode([
     'success' => true,
-    'equipment_count' => (int)($stats['equipment_count'] ?? 0),
-    'task_count' => (int)($stats['task_count'] ?? 0),
-    'maintenance_count' => (int)($stats['maintenance_count'] ?? 0)
+    'equipment_count' => $equipment_count,
+    'task_count' => $task_count,
+    'maintenance_count' => $maintenance_count
 ]);
 ?>
 

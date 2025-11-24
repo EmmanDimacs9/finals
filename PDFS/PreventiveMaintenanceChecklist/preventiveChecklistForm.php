@@ -11,6 +11,35 @@ if (!isLoggedIn() || !isTechnician()) {
 $page_title = 'Preventive Maintenance Checklist';
 require_once '../../technician/header.php';
 
+// Adjust asset paths because this file lives outside the technician directory
+$technicianBasePath = '../../technician/';
+$assetBasePath = '../../';
+?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const techBase = '<?php echo $technicianBasePath; ?>';
+    const assetBase = '<?php echo $assetBasePath; ?>';
+
+    const headerBrand = document.querySelector('.header-brand');
+    if (headerBrand) {
+        headerBrand.setAttribute('href', techBase + 'kanban.php');
+        const logoImg = headerBrand.querySelector('img');
+        if (logoImg) {
+            logoImg.setAttribute('src', assetBase + 'images/User icon.png');
+        }
+    }
+
+    document.querySelectorAll('.footer-nav .nav-item').forEach(function(link) {
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('http') || href.startsWith(techBase)) {
+            return;
+        }
+        link.setAttribute('href', techBase + href);
+    });
+});
+</script>
+<?php
+
 // Fetch equipment from database
 $equipment_list = [];
 $equipment_seen = []; // Track unique asset tags to prevent duplicates

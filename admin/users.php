@@ -309,12 +309,22 @@ $totalUsers = array_sum($roleCounts);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Password <span class="text-danger">*</span></label>
-                                <input type="password" name="password" class="form-control" required minlength="6">
+                                <div class="input-group">
+                                    <input type="password" id="passwordInput" name="password" class="form-control" required minlength="6">
+                                    <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#passwordInput" aria-label="Show password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                                 <small class="form-text text-muted">Must contain uppercase, lowercase, number, and special character</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
-                                <input type="password" name="confirm_password" class="form-control" required minlength="6">
+                                <div class="input-group">
+                                    <input type="password" id="confirmPasswordInput" name="confirm_password" class="form-control" required minlength="6">
+                                    <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#confirmPasswordInput" aria-label="Show password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -385,6 +395,22 @@ $totalUsers = array_sum($roleCounts);
                     this.setCustomValidity(isValid ? '' : 'Passwords do not match');
                 });
             }
+
+            // Password visibility toggles
+            document.querySelectorAll('.toggle-password').forEach(button => {
+                button.addEventListener('click', function() {
+                    const targetInput = document.querySelector(this.dataset.target);
+                    if (!targetInput) return;
+                    const isHidden = targetInput.type === 'password';
+                    targetInput.type = isHidden ? 'text' : 'password';
+                    const icon = this.querySelector('i');
+                    if (icon) {
+                        icon.classList.toggle('fa-eye', !isHidden);
+                        icon.classList.toggle('fa-eye-slash', isHidden);
+                    }
+                    this.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+                });
+            });
         });
     </script>
     <script>

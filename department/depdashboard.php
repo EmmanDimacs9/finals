@@ -33,32 +33,42 @@ $startDate = $_GET['start_date'] ?? '';
 $endDate = $_GET['end_date'] ?? '';
 
 // ✅ Analytics Query with Date Filter - Using prepared statements
+$allowedForms = ['ICT Service Request Form', 'System Request'];
+$formPlaceholders = implode(',', array_fill(0, count($allowedForms), '?'));
+
 $analyticsQuery = "SELECT form_type, COUNT(*) as count, 
                    SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved_count,
                    SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending_count,
                    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected_count
                    FROM requests";
 
+$conditions = [];
 $params = [];
 $types = '';
-$whereClause = '';
+
+$conditions[] = "form_type IN ($formPlaceholders)";
+$params = array_merge($params, $allowedForms);
+$types .= str_repeat('s', count($allowedForms));
 
 if (!empty($startDate) && !empty($endDate)) {
-    $whereClause = " WHERE DATE(created_at) BETWEEN ? AND ?";
+    $conditions[] = "DATE(created_at) BETWEEN ? AND ?";
     $params[] = $startDate;
     $params[] = $endDate;
-    $types = 'ss';
+    $types .= 'ss';
 } elseif (!empty($startDate)) {
-    $whereClause = " WHERE DATE(created_at) >= ?";
+    $conditions[] = "DATE(created_at) >= ?";
     $params[] = $startDate;
-    $types = 's';
+    $types .= 's';
 } elseif (!empty($endDate)) {
-    $whereClause = " WHERE DATE(created_at) <= ?";
+    $conditions[] = "DATE(created_at) <= ?";
     $params[] = $endDate;
-    $types = 's';
+    $types .= 's';
 }
 
-$analyticsQuery .= $whereClause . " GROUP BY form_type ORDER BY count DESC";
+if (!empty($conditions)) {
+    $analyticsQuery .= ' WHERE ' . implode(' AND ', $conditions);
+}
+$analyticsQuery .= " GROUP BY form_type ORDER BY count DESC";
 
 $stmt = $conn->prepare($analyticsQuery);
 if (!empty($params)) {
@@ -72,7 +82,7 @@ while ($row = $analyticsResult->fetch_assoc()) {
 }
 $stmt->close();
 
-// ✅ Include forms
+// ✅ Include forms (legacy view restored)
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';
 include '../PDFS/PreventiveMaintendancePlanIndexCard/PreventiveMaintendancePlanIndexCard.php';
 include '../PDFS/AnnouncementGreetings/announcementForm.php';
@@ -114,14 +124,17 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
             background: var(--primary-color);
             color: #fff;
         }
-        .card {
-            border-radius: 12px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        }
+        .card { border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.08); }
         .stats-card { text-align: center; padding: 25px 10px; }
         .stats-card h3 { font-weight: bold; font-size: 2.2rem; }
         .stats-card i { font-size: 2rem; margin-bottom: 10px; }
         #requestChart { max-width: 100%; height: auto; }
+        .chart-scroll {
+            position: relative;
+            height: 400px;
+            width: 100%;
+            overflow-x: auto;
+        }
     </style>
 </head>
 <body>
@@ -203,7 +216,7 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
 
                         <div class="collapse show" id="requestChartSection">
                             <div class="card-body p-3" style="background: #ffffff;">
-                                <div style="position: relative; height: 400px; width: 100%;">
+                                <div class="chart-scroll">
                                     <canvas id="requestChart"></canvas>
                                 </div>
                             </div>

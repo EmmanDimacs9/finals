@@ -11,25 +11,28 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// Function to get the correct path to landing.php based on current directory
+// Function to get an absolute path to landing.php regardless of current directory depth
 function getLandingPagePath() {
-    // Use PHP_SELF which gives the script path relative to document root
-    $script_path = $_SERVER['PHP_SELF'];
-    $script_path = str_replace('\\', '/', $script_path);
-    
-    // Remove leading slash and get directory parts
-    $script_path = ltrim($script_path, '/');
-    $parts = explode('/', $script_path);
-    
-    // Count directory depth (subtract 1 for the filename itself)
-    $depth = count($parts) - 1;
-    
-    // Build path to landing.php
-    if ($depth > 0) {
-        return str_repeat('../', $depth) . 'landing.php';
-    } else {
-        return 'landing.php';
+    // Resolve the absolute path of the project root (one level above /includes)
+    $project_root = realpath(__DIR__ . '/..');
+    $document_root = isset($_SERVER['DOCUMENT_ROOT'])
+        ? realpath($_SERVER['DOCUMENT_ROOT'])
+        : null;
+
+    if ($project_root && $document_root) {
+        $project_root = str_replace('\\', '/', $project_root);
+        $document_root = str_replace('\\', '/', $document_root);
+
+        // If the project lives under the document root, compute the URL base path
+        if (strpos($project_root, $document_root) === 0) {
+            $base_path = substr($project_root, strlen($document_root));
+            $base_path = '/' . ltrim($base_path, '/');
+            return rtrim($base_path, '/') . '/landing.php';
+        }
     }
+
+    // Fallback to root-level landing.php
+    return '/landing.php';
 }
 
 // Set session timeout (30 minutes)

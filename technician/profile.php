@@ -11,6 +11,7 @@ if (!isLoggedIn() || !isTechnician()) {
 $user_id = $_SESSION['user_id'];
 $error = '';
 $success = '';
+$isAjax = isset($_POST['ajax']) && $_POST['ajax'] === '1';
 
 // Handle profile updates
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -99,22 +100,24 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             $stmt = $conn->prepare("UPDATE users SET full_name = ?, email = ?, phone_number = ?, profile_image = ? WHERE id = ?");
                             $stmt->bind_param("ssssi", $full_name, $email, $phone_number, $profile_image_path, $user_id);
                             
-                            if ($stmt->execute()) {
-                                $_SESSION['user_name'] = $full_name;
-                                $_SESSION['user_email'] = $email;
-                                $_SESSION['profile_image'] = $profile_image_path; // Always update session, even if null
-                                
-                                // Check if profile image was uploaded
-                                if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] == 0) {
-                                    $success = 'Profile and image updated successfully!';
-                                    // Refresh the page to update profile images in dropdown
-                                    echo '<script>setTimeout(function(){ window.location.reload(); }, 1500);</script>';
+                                if ($stmt->execute()) {
+                                    $_SESSION['user_name'] = $full_name;
+                                    $_SESSION['user_email'] = $email;
+                                    $_SESSION['profile_image'] = $profile_image_path; // Always update session, even if null
+                                    
+                                    // Check if profile image was uploaded
+                                    if (isset($_FILES['profile_image']) && $_FILES['profile_image']['error'] == 0) {
+                                        $success = 'Profile and image updated successfully!';
+                                        if (!$isAjax) {
+                                            // Refresh the page to update profile images in dropdown
+                                            echo '<script>setTimeout(function(){ window.location.reload(); }, 1500);</script>';
+                                        }
+                                    } else {
+                                        $success = 'Profile updated successfully!';
+                                    }
                                 } else {
-                                    $success = 'Profile updated successfully!';
+                                    $error = 'Failed to update profile.';
                                 }
-                            } else {
-                                $error = 'Failed to update profile.';
-                            }
                         }
                     }
                 }
@@ -155,6 +158,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $stmt->close();
                 break;
         }
+    }
+
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => empty($error),
+            'message' => empty($error) ? ($success ?: 'Action completed successfully.') : $error
+        ]);
+        exit();
     }
 }
 

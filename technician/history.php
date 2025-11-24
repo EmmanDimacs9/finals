@@ -58,6 +58,79 @@ $stmt = $conn->prepare($sql);
 $stmt->bind_param($types, ...$params);
 $stmt->execute();
 $equipment_history = $stmt->get_result();
+$stmt->close();
+
+// Fetch completed records across modules for this technician
+$completed_params = [$user_id, $user_id, $user_id];
+$completed_types = "iii";
+$completed_filters = [];
+
+if ($date_from) {
+    $completed_filters[] = "DATE(completed_date) >= ?";
+    $completed_params[] = $date_from;
+    $completed_types .= "s";
+}
+if ($date_to) {
+    $completed_filters[] = "DATE(completed_date) <= ?";
+    $completed_params[] = $date_to;
+    $completed_types .= "s";
+}
+
+$completed_sql = "
+    SELECT *
+    FROM (
+        SELECT 
+            'Service Request' AS record_type,
+            sr.id AS record_id,
+            COALESCE(sr.equipment, 'Service Request') AS title,
+            sr.accomplishment AS details,
+            sr.support_level,
+            sr.processing_time,
+            sr.completed_at AS completed_date,
+            sr.remarks AS notes
+        FROM service_requests sr
+        WHERE sr.technician_id = ? AND sr.status = 'Completed'
+
+        UNION ALL
+
+        SELECT 
+            'System Request' AS record_type,
+            sys.id AS record_id,
+            COALESCE(sys.description, 'System Request') AS title,
+            sys.description AS details,
+            NULL AS support_level,
+            NULL AS processing_time,
+            sys.updated_at AS completed_date,
+            sys.remarks AS notes
+        FROM system_requests sys
+        WHERE sys.technician_id = ? AND sys.status = 'Completed'
+
+        UNION ALL
+
+        SELECT 
+            'Maintenance' AS record_type,
+            mr.id AS record_id,
+            COALESCE(mr.equipment_type, 'Maintenance Task') AS title,
+            mr.description AS details,
+            mr.support_level,
+            mr.processing_time,
+            mr.completed_at AS completed_date,
+            mr.remarks AS notes
+        FROM maintenance_records mr
+        WHERE mr.technician_id = ? AND mr.status = 'completed'
+    ) AS completed_records
+";
+
+if (!empty($completed_filters)) {
+    $completed_sql .= " WHERE " . implode(' AND ', $completed_filters);
+}
+$completed_sql .= " ORDER BY completed_date DESC";
+
+$completed_stmt = $conn->prepare($completed_sql);
+$completed_stmt->bind_param($completed_types, ...$completed_params);
+$completed_stmt->execute();
+$completed_history = $completed_stmt->get_result();
+$completed_stmt->close();
 
 $page_title = 'Equipment History';
 require_once 'header.php';
@@ -146,53 +219,42 @@ require_once 'header.php';
         <?php endif; ?>
     </div>
 </div>
-<!-- User Tasks -->
+<!-- Completed Requests -->
 <div class="card mt-4">
     <div class="card-header">
-        <h5><i class="fas fa-tasks"></i> My Tasks</h5>
+        <h5><i class="fas fa-check-circle"></i> Completed Requests & Maintenance</h5>
+        <small class="text-muted">All finished service/system requests and maintenance jobs you handled.</small>
     </div>
     <div class="card-body">
-        <?php
-        $stmt = $conn->prepare("SELECT * FROM tasks WHERE assigned_to = ? ORDER BY due_date ASC");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $tasks = $stmt->get_result();
-        ?>
-
-        <?php if ($tasks->num_rows > 0): ?>
+        <?php if ($completed_history->num_rows > 0): ?>
             <div class="table-responsive">
                 <table class="table table-hover">
                     <thead>
                         <tr>
+                            <th>Type</th>
                             <th>Title</th>
-                            <th>Description</th>
-                            <th>Priority</th>
-                            <th>Status</th>
-                            <th>Remarks</th>
-                            <th>Due Date</th>
-                            <th>Created</th>
-                            <th>Updated</th>
+                            <th>Details / Notes</th>
+                            <th>Support Level</th>
+                            <th>SLA / Processing</th>
+                            <th>Completed On</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php $i=1; while ($task = $tasks->fetch_assoc()): ?>
+                        <?php while ($completed = $completed_history->fetch_assoc()): ?>
                             <tr>
-                                <td><?= htmlspecialchars($task['title']); ?></td>
-                                <td><?= htmlspecialchars($task['description']); ?></td>
+                                <td><span class="badge bg-success"><?= htmlspecialchars($completed['record_type']); ?></span></td>
+                                <td><?= htmlspecialchars($completed['title']); ?></td>
                                 <td>
-                                    <span class="badge bg-<?= $task['priority'] == 'high' ? 'danger' : ($task['priority'] == 'medium' ? 'warning' : 'secondary'); ?>">
-                                        <?= ucfirst($task['priority']); ?>
-                                    </span>
+                                    <?php if (!empty($completed['details'])): ?>
+                                        <div><strong>Summary:</strong> <?= nl2br(htmlspecialchars($completed['details'])); ?></div>
+                                    <?php endif; ?>
+                                    <?php if (!empty($completed['notes'])): ?>
+                                        <div class="text-muted small"><?= nl2br(htmlspecialchars($completed['notes'])); ?></div>
+                                    <?php endif; ?>
                                 </td>
-                                <td>
-                                    <span class="badge bg-<?= $task['status'] == 'completed' ? 'success' : ($task['status'] == 'in_progress' ? 'info' : 'secondary'); ?>">
-                                        <?= ucfirst($task['status']); ?>
-                                    </span>
-                                </td>
-								<td><?= htmlspecialchars($task['remarks']); ?></td>
-                                <td><?= htmlspecialchars($task['due_date']); ?></td>
-                                <td><?= date("M d, Y H:i", strtotime($task['created_at'])); ?></td>
-                                <td><?= date("M d, Y H:i", strtotime($task['updated_at'])); ?></td>
+                                <td><?= htmlspecialchars($completed['support_level'] ?? 'N/A'); ?></td>
+                                <td><?= htmlspecialchars($completed['processing_time'] ?? 'N/A'); ?></td>
+                                <td><?= $completed['completed_date'] ? date("M d, Y H:i", strtotime($completed['completed_date'])) : 'N/A'; ?></td>
                             </tr>
                         <?php endwhile; ?>
                     </tbody>
@@ -200,16 +262,13 @@ require_once 'header.php';
             </div>
         <?php else: ?>
             <div class="text-center py-4">
-                <i class="fas fa-tasks fa-3x text-muted mb-3"></i>
-                <h5 class="text-muted">No Tasks Assigned</h5>
-                <p class="text-muted">You don’t have any tasks assigned yet.</p>
+                <i class="fas fa-check-circle fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">No completed records found</h5>
+                <p class="text-muted mb-0">Finish a service, system request, or maintenance record to see it logged here.</p>
             </div>
         <?php endif; ?>
-
-        <?php $stmt->close(); ?>
     </div>
 </div>
-
         </div>
     </div>
 </div>

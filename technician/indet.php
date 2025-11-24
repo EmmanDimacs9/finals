@@ -50,34 +50,31 @@ require_once 'header.php';
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div class="row text-center g-3">
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
-                                        <i class="fas fa-desktop fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-equipment">0</h3>
-                                        <small class="text-muted">Equipment Assigned</small>
-                                    </div>
+                            <div class="stats-grid text-center">
+                                <div class="stat-card stat-card-pending">
+                                    <i class="fas fa-clock fa-3x mb-3"></i>
+                                    <h3 class="mb-2" id="kanban-stat-pending">0</h3>
+                                    <small class="text-muted">Pending Items</small>
                                 </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
-                                        <i class="fas fa-clipboard-check fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-tasks">0</h3>
-                                        <small class="text-muted">Tasks Assigned</small>
-                                    </div>
+                                <div class="stat-card stat-card-progress">
+                                    <i class="fas fa-sync fa-3x mb-3"></i>
+                                    <h3 class="mb-2" id="kanban-stat-progress">0</h3>
+                                    <small class="text-muted">In Progress</small>
                                 </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-yellow clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
-                                        <i class="fas fa-tools fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-maintenance">0</h3>
-                                        <small class="text-muted">Maintenance Records</small>
-                                    </div>
+                                <div class="stat-card stat-card-completed">
+                                    <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                    <h3 class="mb-2" id="kanban-stat-completed">0</h3>
+                                    <small class="text-muted">Completed</small>
                                 </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-green clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
-                                        <i class="fas fa-calendar fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
-                                        <small class="text-muted">Current Month</small>
-                                    </div>
+                                <div class="stat-card stat-card-total">
+                                    <i class="fas fa-layer-group fa-3x mb-3"></i>
+                                    <h3 class="mb-2" id="kanban-stat-total">0</h3>
+                                    <small class="text-muted">Total Items</small>
+                                </div>
+                                <div class="stat-card stat-card-month">
+                                    <i class="fas fa-calendar fa-3x mb-3"></i>
+                                    <h3 class="mb-2" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
+                                    <small class="text-muted">Current Month</small>
                                 </div>
                             </div>
                         </div>
@@ -716,21 +713,62 @@ function loadStatistics() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('kanban-stat-equipment').textContent = data.equipment_count || 0;
-                document.getElementById('kanban-stat-tasks').textContent = data.task_count || 0;
-                document.getElementById('kanban-stat-maintenance').textContent = data.maintenance_count || 0;
+                syncStatisticDisplays({
+                    pending: data.pending_count || 0,
+                    in_progress: data.in_progress_count || 0,
+                    completed: data.completed_count || 0
+                });
             } else {
-                document.getElementById('kanban-stat-equipment').textContent = '0';
-                document.getElementById('kanban-stat-tasks').textContent = '0';
-                document.getElementById('kanban-stat-maintenance').textContent = '0';
+                syncStatisticDisplays({
+                    pending: 0,
+                    in_progress: 0,
+                    completed: 0
+                });
             }
         })
         .catch(err => {
             console.error('Error fetching statistics:', err);
-            document.getElementById('kanban-stat-equipment').textContent = '0';
-            document.getElementById('kanban-stat-tasks').textContent = '0';
-            document.getElementById('kanban-stat-maintenance').textContent = '0';
+            syncStatisticDisplays({
+                pending: 0,
+                in_progress: 0,
+                completed: 0
+            });
         });
+}
+
+function syncStatisticDisplays(totals = { pending: 0, in_progress: 0, completed: 0 }) {
+    const normalized = {
+        pending: Number(totals.pending) || 0,
+        in_progress: Number(totals.in_progress) || 0,
+        completed: Number(totals.completed) || 0,
+        month_label: totals.month_label
+    };
+    normalized.total = normalized.pending + normalized.in_progress + normalized.completed;
+    const monthLabel = normalized.month_label || new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' });
+
+    const mapping = [
+        { id: 'kanban-stat-pending', key: 'pending' },
+        { id: 'kanban-stat-progress', key: 'in_progress' },
+        { id: 'kanban-stat-completed', key: 'completed' },
+        { id: 'kanban-stat-total', key: 'total' },
+        { id: 'kanban-stat-month', key: 'month' },
+        { id: 'stat-pending', key: 'pending' },
+        { id: 'stat-progress', key: 'in_progress' },
+        { id: 'stat-completed', key: 'completed' },
+        { id: 'stat-total', key: 'total' },
+        { id: 'stat-month', key: 'month' }
+    ];
+
+    mapping.forEach(({ id, key }) => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (key === 'month') {
+                el.textContent = monthLabel;
+            } else {
+                el.textContent = normalized[key] ?? 0;
+            }
+        }
+    });
 }
 
 // Refreshing
@@ -757,6 +795,12 @@ async function loadAllItems() {
 }
 
 function updateStatusCounts() {
+    const totals = {
+        pending: 0,
+        in_progress: 0,
+        completed: 0
+    };
+
     ['pending','in_progress','completed'].forEach(status => {
         const container = document.getElementById(`${status.replace('_','-')}-tasks`);
         const badge = document.getElementById(`${status.replace('_','-')}-count`);
@@ -766,6 +810,7 @@ function updateStatusCounts() {
         
         const totalItems = container.querySelectorAll('.task-card:not(.d-none)').length;
         badge.textContent = totalItems;
+        totals[status] = totalItems;
         
         // Show/hide empty state
         if (emptyState) {
@@ -776,6 +821,8 @@ function updateStatusCounts() {
             }
         }
     });
+
+    syncStatisticDisplays(totals);
 }
 
 let currentFilter = {
@@ -2731,16 +2778,24 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
 }
 
-.stat-card-blue i {
-    color: #007bff;
+.stat-card-pending i {
+    color: #0d6efd;
 }
 
-.stat-card-yellow i {
-    color: #ffc107;
+.stat-card-progress i {
+    color: #6f42c1;
 }
 
-.stat-card-green i {
+.stat-card-completed i {
     color: #28a745;
+}
+
+.stat-card-total i {
+    color: #fd7e14;
+}
+
+.stat-card-month i {
+    color: #20c997;
 }
 
 .stat-card h3 {
@@ -2756,33 +2811,19 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     color: #6c757d;
 }
 
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1.25rem;
+}
+
 .clickable-stat {
     cursor: pointer;
     position: relative;
 }
 
 .clickable-stat:hover {
-    border-color: #007bff;
-}
-
-.stat-active {
-    border: 2px solid #007bff !important;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
-    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
-}
-
-.stat-active.stat-card-blue {
-    border-color: #007bff !important;
-}
-
-.stat-active.stat-card-yellow {
-    border-color: #ffc107 !important;
-    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
-}
-
-.stat-active.stat-card-green {
-    border-color: #28a745 !important;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3) !important;
+    border-color: #0d6efd;
 }
 
 /* Responsive Design */

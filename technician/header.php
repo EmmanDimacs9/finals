@@ -195,16 +195,24 @@ if (!empty($_SESSION['profile_image'])) {
             box-shadow: 0 8px 20px rgba(0,0,0,0.1);
         }
         
-        .stat-card-blue i {
-            color: #007bff;
+        .stat-card-pending i {
+            color: #0d6efd;
         }
         
-        .stat-card-yellow i {
-            color: #ffc107;
+        .stat-card-progress i {
+            color: #6f42c1;
         }
         
-        .stat-card-green i {
+        .stat-card-completed i {
             color: #28a745;
+        }
+        
+        .stat-card-total i {
+            color: #fd7e14;
+        }
+        
+        .stat-card-month i {
+            color: #20c997;
         }
         
         .stat-card h3 {
@@ -829,28 +837,35 @@ if (!empty($_SESSION['profile_image'])) {
             <div class="modal-body">
                 <div class="row text-center g-3">
                     <div class="col-6">
-                        <div class="stat-card stat-card-blue">
-                            <i class="fas fa-desktop fa-3x mb-3"></i>
-                            <h3 class="mb-2" id="stat-equipment">0</h3>
-                            <small class="text-muted">Equipment Assigned</small>
+                        <div class="stat-card stat-card-pending">
+                            <i class="fas fa-clock fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-pending">0</h3>
+                            <small class="text-muted">Pending Items</small>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card stat-card-blue">
-                            <i class="fas fa-clipboard-check fa-3x mb-3"></i>
-                            <h3 class="mb-2" id="stat-tasks">0</h3>
-                            <small class="text-muted">Tasks Assigned</small>
+                        <div class="stat-card stat-card-progress">
+                            <i class="fas fa-sync fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-progress">0</h3>
+                            <small class="text-muted">In Progress</small>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card stat-card-yellow">
-                            <i class="fas fa-tools fa-3x mb-3"></i>
-                            <h3 class="mb-2" id="stat-maintenance">0</h3>
-                            <small class="text-muted">Maintenance Records</small>
+                        <div class="stat-card stat-card-completed">
+                            <i class="fas fa-check-circle fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-completed">0</h3>
+                            <small class="text-muted">Completed</small>
                         </div>
                     </div>
                     <div class="col-6">
-                        <div class="stat-card stat-card-green">
+                        <div class="stat-card stat-card-total">
+                            <i class="fas fa-layer-group fa-3x mb-3"></i>
+                            <h3 class="mb-2" id="stat-total">0</h3>
+                            <small class="text-muted">Total Items</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="stat-card stat-card-month">
                             <i class="fas fa-calendar fa-3x mb-3"></i>
                             <h3 class="mb-2" id="stat-month"><?php echo date('M Y'); ?></h3>
                             <small class="text-muted">Current Month</small>
@@ -893,26 +908,28 @@ if (!empty($_SESSION['profile_image'])) {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    document.getElementById('stat-equipment').textContent = data.equipment_count || 0;
-                    document.getElementById('stat-tasks').textContent = data.task_count || 0;
-                    document.getElementById('stat-maintenance').textContent = data.maintenance_count || 0;
+                    document.getElementById('stat-pending').textContent = data.pending_count || 0;
+                    document.getElementById('stat-progress').textContent = data.in_progress_count || 0;
+                    document.getElementById('stat-completed').textContent = data.completed_count || 0;
+                    document.getElementById('stat-total').textContent = data.total_items || 0;
                 } else {
-                    // Set defaults if fetch fails
-                    document.getElementById('stat-equipment').textContent = '0';
-                    document.getElementById('stat-tasks').textContent = '0';
-                    document.getElementById('stat-maintenance').textContent = '0';
+                    document.getElementById('stat-pending').textContent = '0';
+                    document.getElementById('stat-progress').textContent = '0';
+                    document.getElementById('stat-completed').textContent = '0';
+                    document.getElementById('stat-total').textContent = '0';
                 }
+                document.getElementById('stat-month').textContent = new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' });
                 // Show modal
                 const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
                 modal.show();
             })
             .catch(err => {
                 console.error('Error fetching statistics:', err);
-                // Set defaults on error
-                document.getElementById('stat-equipment').textContent = '0';
-                document.getElementById('stat-tasks').textContent = '0';
-                document.getElementById('stat-maintenance').textContent = '0';
-                // Show modal anyway
+                document.getElementById('stat-pending').textContent = '0';
+                document.getElementById('stat-progress').textContent = '0';
+                document.getElementById('stat-completed').textContent = '0';
+                document.getElementById('stat-total').textContent = '0';
+                document.getElementById('stat-month').textContent = new Date().toLocaleString('en-US', { month: 'short', year: 'numeric' });
                 const modal = new bootstrap.Modal(document.getElementById('statisticsModal'));
                 modal.show();
             });

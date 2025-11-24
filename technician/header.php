@@ -617,6 +617,10 @@ if (!empty($_SESSION['profile_image'])) {
                             <i class="fas fa-tasks"></i>
                             <span>My Tasks</span>
                         </a>
+                        <a href="inventory.php" class="quick-action-item">
+                            <i class="fas fa-boxes"></i>
+                            <span>Inventory</span>
+                        </a>
                         <a href="qr.php" class="quick-action-item">
                             <i class="fas fa-qrcode"></i>
                             <span>QR Scanner</span>
@@ -765,20 +769,22 @@ if (!empty($_SESSION['profile_image'])) {
             <div class="modal-body">
                 <form method="POST" id="changePasswordForm" action="profile.php">
                     <input type="hidden" name="action" value="change_password">
-                    <div class="mb-3">
-                        <label class="form-label">Current Password</label>
-                        <input type="password" class="form-control" name="current_password" required>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Current Password</label>
+                            <input type="password" class="form-control" name="current_password" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">New Password</label>
+                            <input type="password" class="form-control" name="new_password" required minlength="6">
+                            <div class="form-text">Must contain uppercase, number, and special character</div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" name="confirm_password" required minlength="6">
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" name="new_password" required minlength="6">
-                        <div class="form-text">Must contain uppercase, number, and special character</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Confirm New Password</label>
-                        <input type="password" class="form-control" name="confirm_password" required minlength="6">
-                    </div>
-                    <div class="modal-footer px-0">
+                    <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-warning">
                             <i class="fas fa-key"></i> Change Password

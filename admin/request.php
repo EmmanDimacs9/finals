@@ -29,16 +29,6 @@ if ($columnResult->num_rows == 0) {
     $conn->query($addColumnQuery);
 }
 
-// Fetch technicians for assignment
-$techniciansQuery = "SELECT id, full_name, email FROM users WHERE role = 'technician' ORDER BY full_name ASC";
-$techniciansResult = $conn->query($techniciansQuery);
-$technicians = [];
-if ($techniciansResult) {
-    while ($row = $techniciansResult->fetch_assoc()) {
-        $technicians[] = $row;
-    }
-}
-
 // Fetch only Service Request Form requests (office requests)
 $query = "SELECT r.*, u.full_name FROM requests r 
           LEFT JOIN users u ON r.user_id = u.id 
@@ -155,12 +145,9 @@ if (!$result) {
                                                 </button>
 
                                                 <!-- Approve Button -->
-                                                <button type="button" 
-                                                        class="btn btn-approve btn-sm btn-action approve-request-btn" 
-                                                        data-request-id="<?= $row['id'] ?>"
-                                                        data-form-type="<?= htmlspecialchars($row['form_type']) ?>">
+                                                <a href="approve_request.php?id=<?= $row['id'] ?>" class="btn btn-approve btn-sm btn-action" onclick="return confirm('Approve this request?');">
                                                     <i class="fas fa-check"></i> Approve
-                                                </button>
+                                                </a>
 
                                                 <!-- Reject Button -->
                                                 <a href="reject_request.php?id=<?= $row['id'] ?>" class="btn btn-reject btn-sm btn-action" onclick="return confirm('Reject this request?');">
@@ -227,42 +214,6 @@ if (!$result) {
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Approve Request with Technician Assignment Modal -->
-<div class="modal fade" id="approveRequestModal" tabindex="-1" aria-labelledby="approveRequestModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="approveRequestModalLabel"><i class="fas fa-check"></i> Approve Request & Assign Technician</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="approveRequestForm">
-                    <input type="hidden" id="approveRequestId" name="request_id">
-                    <div class="mb-3">
-                        <label for="approveTechnician" class="form-label">Assign Technician <span class="text-danger">*</span></label>
-                        <select class="form-select" id="approveTechnician" name="technician_id" required>
-                            <option value="">Select Technician</option>
-                            <?php foreach ($technicians as $tech): ?>
-                                <option value="<?= $tech['id'] ?>"><?= htmlspecialchars($tech['full_name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                        <small class="text-muted">Service requests require technician assignment before approval.</small>
-                    </div>
-                    <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> Once approved and assigned, the request will appear in the technician's kanban board.
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-success" id="confirmApproveBtn">
-                    <i class="fas fa-check"></i> Approve & Assign
-                </button>
             </div>
         </div>
     </div>
@@ -358,43 +309,6 @@ if (!$result) {
 
         document.getElementById('requestModal').addEventListener('hidden.bs.modal', () => {
             requestPdfFrame.src = '';
-        });
-
-        // Handle Approve Request with Technician Assignment
-        const approveRequestModal = new bootstrap.Modal(document.getElementById('approveRequestModal'));
-        const approveRequestForm = document.getElementById('approveRequestForm');
-        
-        document.querySelectorAll('.approve-request-btn').forEach(button => {
-            button.addEventListener('click', () => {
-                const requestId = button.dataset.requestId;
-                const formType = button.dataset.formType;
-                document.getElementById('approveRequestId').value = requestId;
-                
-                // Only show technician selection for service requests
-                if (formType === 'ICT Service Request Form') {
-                    approveRequestModal.show();
-                } else {
-                    // For other request types, approve directly
-                    if (confirm('Approve this request?')) {
-                        window.location.href = `approve_request.php?id=${requestId}`;
-                    }
-                }
-            });
-        });
-
-        document.getElementById('confirmApproveBtn').addEventListener('click', () => {
-            const formData = new FormData(approveRequestForm);
-            const requestId = formData.get('request_id');
-            const technicianId = formData.get('technician_id');
-            
-            if (!technicianId) {
-                alert('Please select a technician.');
-                return;
-            }
-            
-            if (confirm('Approve this request and assign to selected technician?')) {
-                window.location.href = `approve_request.php?id=${requestId}&technician_id=${technicianId}`;
-            }
         });
     </script>
     <script>

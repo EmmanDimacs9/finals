@@ -265,22 +265,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 // Insert maintenance record
                 $insertQuery = "INSERT INTO maintenance_records (request_id, equipment_type, technician_id, maintenance_type, description, cost, start_date, end_date, status, created_at) 
                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', NOW())";
-                $insertStmt = $conn->prepare($insertQuery);
-                $insertStmt->bind_param("isisssss", $request_id, $equipment_type, $technician_id, $maintenance_type, $description, $cost, $start_date, $end_date);
+                    $insertStmt = $conn->prepare($insertQuery);
+                    $insertStmt->bind_param("isisssss", $request_id, $equipment_type, $technician_id, $maintenance_type, $description, $cost, $start_date, $end_date);
 
-                if ($insertStmt->execute()) {
-                    $maintenanceId = $conn->insert_id;
+                    if ($insertStmt->execute()) {
+                        $maintenanceId = $conn->insert_id;
 
-                    $autoStart = $conn->prepare("
-                        UPDATE maintenance_records 
-                        SET status = 'in_progress', started_at = NOW(), updated_at = NOW() 
-                        WHERE id = ?
-                    ");
-                    if ($autoStart) {
-                        $autoStart->bind_param("i", $maintenanceId);
-                        $autoStart->execute();
-                        $autoStart->close();
-                    }
+                        // Keep newly assigned maintenance in pending state until technician starts it
+                        $pendingStmt = $conn->prepare("
+                            UPDATE maintenance_records 
+                            SET status = 'scheduled', started_at = NULL, updated_at = NOW() 
+                            WHERE id = ?
+                        ");
+                        if ($pendingStmt) {
+                            $pendingStmt->bind_param("i", $maintenanceId);
+                            $pendingStmt->execute();
+                            $pendingStmt->close();
+                        }
 
                     $message = 'Maintenance assigned to technician successfully!';
 

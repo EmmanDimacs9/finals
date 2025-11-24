@@ -3,9 +3,13 @@
     <!-- Footer Navigation -->
     <nav class="footer-nav">
         <div class="nav-container">
-            <a href="kanban.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'kanban.php' ? 'active' : ''; ?>">
+            <a href="indet.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'indet.php' ? 'active' : ''; ?>">
                 <i class="fas fa-home"></i>
                 <span>Home</span>
+            </a>
+            <a href="inventory.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'inventory.php' ? 'active' : ''; ?>">
+                <i class="fas fa-boxes"></i>
+                <span>Inventory</span>
             </a>
             <a href="qr.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'qr.php' ? 'active' : ''; ?>">
                 <i class="fas fa-qrcode"></i>
@@ -15,13 +19,17 @@
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
+            <a href="users.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
+                <i class="fas fa-user-plus"></i>
+                <span>Accounts</span>
+            </a>
             <a href="history.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'history.php' ? 'active' : ''; ?>">
                 <i class="fas fa-history"></i>
                 <span>History</span>
             </a>
-            <a href="activity_logs.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'activity_logs.php' ? 'active' : ''; ?>">
-                <i class="fas fa-list-alt"></i>
-                <span>Activity Logs</span>
+            <a href="profile.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'profile.php' ? 'active' : ''; ?>">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
             </a>
         </div>
     </nav>

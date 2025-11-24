@@ -14,90 +14,23 @@ $page_title = 'Kanban Dashboard';
 require_once 'header.php';
 ?>
 
-<div class="container-fluid" style="padding: 30px 20px; background-color: #f8f9fa; min-height: 100vh;">
+<div class="container-fluid">
     <div class="row">
         <div class="col-12">
-            <!-- Header Section -->
-            <div class="mb-5" style="margin: 0; width: 100%;">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="me-3" style="width: 48px; height: 48px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);">
-                        <i class="fas fa-tasks text-white" style="font-size: 24px;"></i>
-                    </div>
-                    <div>
-                        <h1 class="mb-0" style="color: #212529; font-weight: 700; font-size: 2rem; letter-spacing: -0.5px;">
-                            Task Management & Service Board
-                        </h1>
-                    </div>
-                </div>
-                <div class="d-flex align-items-center mb-4" style="margin-left: 60px;">
-                    <div class="me-2" style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-info-circle text-white" style="font-size: 10px;"></i>
-                    </div>
-                    <p class="text-muted mb-0" style="font-size: 0.95rem; color: #6c757d;">
-                        Manage service requests from departments, tasks, and maintenance records
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                <div>
+                    <h2 class="mb-2" style="color: #212529; font-weight: 700;">
+                        <i class="fas fa-tasks text-danger"></i> ICT Service Request & Task Board
+                    </h2>
+                    <p class="text-muted mb-0">
+                        <i class="fas fa-info-circle"></i> Manage service requests from departments, tasks, and maintenance records
                     </p>
                 </div>
-
-                <div id="alert-container"></div>
-
-                <!-- Statistics Cards Section -->
-                <div class="row g-4 mb-4">
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="stat-card-modern stat-card-blue-modern clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
-                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
-                                <i class="fas fa-desktop"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 class="stat-number" id="kanban-stat-equipment">0</h3>
-                                <p class="stat-label">Equipment Assigned</p>
-                            </div>
-                            <i class="fas fa-chevron-right stat-arrow"></i>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="stat-card-modern stat-card-blue-modern clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
-                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
-                                <i class="fas fa-clipboard-check"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 class="stat-number" id="kanban-stat-tasks">0</h3>
-                                <p class="stat-label">Tasks Assigned</p>
-                            </div>
-                            <i class="fas fa-chevron-right stat-arrow"></i>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="stat-card-modern stat-card-yellow-modern clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
-                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
-                                <i class="fas fa-tools"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 class="stat-number" id="kanban-stat-maintenance">0</h3>
-                                <p class="stat-label">Maintenance Records</p>
-                            </div>
-                            <i class="fas fa-chevron-right stat-arrow"></i>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="stat-card-modern stat-card-green-modern clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
-                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
-                                <i class="fas fa-calendar"></i>
-                            </div>
-                            <div class="stat-content">
-                                <h3 class="stat-number" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
-                                <p class="stat-label">Current Month</p>
-                            </div>
-                            <i class="fas fa-chevron-right stat-arrow"></i>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Filter Section -->
-                <div class="mb-4" style="max-width: 300px;">
-                    <label for="requestTypeFilter" class="form-label text-uppercase text-muted small mb-2" style="font-weight: 600; letter-spacing: 0.5px;">
+                <div class="ms-auto" style="min-width: 220px;">
+                    <label for="requestTypeFilter" class="form-label text-uppercase text-muted small mb-1">
                         Filter by request type
                     </label>
-                    <select id="requestTypeFilter" class="form-select form-select-lg" style="border-radius: 8px; border: 1px solid #dee2e6;">
+                    <select id="requestTypeFilter" class="form-select form-select-sm">
                         <option value="all" selected>Show all items</option>
                         <option value="service_request">Service Requests</option>
                         <option value="system_request">System Requests</option>
@@ -105,8 +38,54 @@ require_once 'header.php';
                 </div>
             </div>
 
-            <!-- Kanban Board Section -->
-            <div class="kanban-board-container" style="width: 100%; margin: 0;">
+            <div id="alert-container"></div>
+
+            <!-- Statistics Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie text-danger"></i> My Statistics
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center g-3">
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
+                                        <i class="fas fa-desktop fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-equipment">0</h3>
+                                        <small class="text-muted">Equipment Assigned</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
+                                        <i class="fas fa-clipboard-check fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-tasks">0</h3>
+                                        <small class="text-muted">Tasks Assigned</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-yellow clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
+                                        <i class="fas fa-tools fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-maintenance">0</h3>
+                                        <small class="text-muted">Maintenance Records</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-green clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
+                                        <i class="fas fa-calendar fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
+                                        <small class="text-muted">Current Month</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kanban-board-container">
                 <!-- Pending -->
                 <div class="kanban-column-wrapper">
                     <div class="card kanban-column">
@@ -616,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('Support level assigned and timer started!', 'success');
+                    showAlert('Maintenance support level assigned and deadline set!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('maintenanceAssignModal')).hide();
                     loadAllItems();
                 } else {
@@ -647,15 +626,6 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Please select a support level and enter processing time.');
             return;
         }
-        
-        // Get current status to preserve it (don't auto-change status)
-        const currentStatus = document.getElementById('serviceRequestId').getAttribute('data-current-status') || 'pending';
-        const statusMap = {
-            'pending': 'Pending',
-            'in_progress': 'In Progress',
-            'completed': 'Completed'
-        };
-        const dbStatus = statusMap[currentStatus] || 'Pending';
         
         fetch('api/task_webhook.php', {
             method: 'POST',
@@ -962,53 +932,30 @@ function loadTasksByStatus(status) {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success && data.data && Array.isArray(data.data)) {
-            if (status === 'completed' && data.data.length > 0) {
-                console.log(`Loaded ${data.data.length} completed task(s)`);
-            }
+        if (data.success) {
             renderTasks(status, data.data);
-        } else {
-            if (status === 'completed') {
-                console.log(`No completed tasks found for user ${currentUserId}`);
-            }
-            // Clear the container if no tasks
-            const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-            if (container) {
-                container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
-            }
         }
-        return Promise.resolve();
-    })
-    .catch(error => {
-        console.error(`Error loading tasks for status ${status}:`, error);
         return Promise.resolve();
     });
 }
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    if (!container) {
-        console.error(`Container not found for status: ${status}`);
-        return;
-    }
-    // Remove only task cards (not maintenance or service request cards)
+    // Remove only task cards
     container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
     // Add new task cards
-    if (tasks && tasks.length > 0) {
-        tasks.forEach(task => {
-            const existing = container.querySelector(`[data-task-id="${task.id}"]`);
-            if (!existing) {
-                container.insertAdjacentHTML('beforeend', createTaskElement(task));
-            }
-        });
-    }
+    tasks.forEach(task => {
+        const existing = container.querySelector(`[data-task-id="${task.id}"]`);
+        if (!existing) {
+            container.insertAdjacentHTML('beforeend', createTaskElement(task));
+        }
+    });
     // Count will be updated by loadAllItems after all items are loaded
 }
 
 function createTaskElement(task) {
-    const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A';
+    const dueDate = new Date(task.due_date).toLocaleDateString();
     const createdDate = new Date(task.created_at).toLocaleDateString();
-    const completedDate = task.status === 'completed' && task.updated_at ? new Date(task.updated_at).toLocaleDateString() : null;
 
     return `
     <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" data-task-id="${task.id}" data-card-type="task" data-created-date="${task.created_at}">
@@ -1020,22 +967,17 @@ function createTaskElement(task) {
         <div class="task-meta">
             <small class="text-muted">
                 <i class="fas fa-user"></i> ${escapeHtml(task.assigned_to_name)}<br>
-                ${task.status === 'completed' && completedDate 
-                    ? `<i class="fas fa-check-circle"></i> Completed: ${completedDate}<br>`
-                    : `<i class="fas fa-calendar"></i> Due: ${dueDate}<br>`}
+                <i class="fas fa-calendar"></i> Due: ${dueDate}<br>
                 <i class="fas fa-clock"></i> Created: ${createdDate}
             </small>
         </div>
-        ${task.status === 'completed' ? `
-            <div class="task-actions mt-2">
-                <button class="btn btn-outline-danger btn-sm w-100" onclick="deleteTask(${task.id})">
-                    <i class="fas fa-trash"></i> Remove
-                </button>
-            </div>` : `
+        ${task.status === 'completed' && task.remarks ? `<div><strong>Remarks:</strong> ${escapeHtml(task.remarks)}</div>` : ''}
+        ${task.status === 'in_progress' ? `
             <div class="task-actions">
-                ${task.status === 'pending'
-                    ? `<button class="btn btn-sm btn-primary" onclick="updateTaskStatus(${task.id}, 'in_progress')">Start</button>`
-                    : `<button class="btn btn-sm btn-warning" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>`}
+                <button class="btn btn-sm btn-warning" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>
+            </div>` : task.status === 'pending' ? `
+            <div class="task-actions">
+                <button class="btn btn-sm btn-primary" onclick="updateTaskStatus(${task.id}, 'in_progress')">Accept Request</button>
             </div>` : `
             <div class="task-actions">
                 <button class="btn btn-sm btn-success" onclick="deleteTask(${task.id})">
@@ -1320,8 +1262,8 @@ function createServiceRequestElement(request) {
     const createdDate = new Date(request.created_at).toLocaleDateString();
     const createdTime = new Date(request.created_at).toLocaleTimeString();
     const statusClass = request.status === 'completed' ? 'completed' : '';
-    const isPending = request.status === 'pending' && !request.technician_id;
-    const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
+    const isPending = request.status === 'pending';
+    const isAssigned = request.technician_id && request.technician_id == currentUserId && request.status === 'in_progress';
     const surveyCount = parseInt(request.survey_count || 0, 10) || 0;
     const surveyAverage = request.survey_average ? parseFloat(request.survey_average).toFixed(1) : null;
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;
@@ -2062,10 +2004,6 @@ function openServiceRequestModal(requestId) {
                 const supportLevelSelect = document.getElementById('serviceRequestSupportLevel');
                 const processingTimeInput = document.getElementById('serviceRequestProcessingTime');
                 
-                // Store current status to preserve it
-                const currentStatus = request.status === 'Pending' ? 'pending' : (request.status === 'In Progress' ? 'in_progress' : 'completed');
-                document.getElementById('serviceRequestId').setAttribute('data-current-status', currentStatus);
-                
                 if (request.support_level) {
                     supportLevelSelect.value = request.support_level;
                     // Auto-populate processing time if support level is set
@@ -2273,30 +2211,6 @@ function viewFeedbackPreview(requestId) {
     .catch(error => {
         modalBody.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error loading feedback: ${escapeHtml(error.message)}</div>`;
     });
-}
-
-function deleteTask(taskId) {
-    if (!confirm('Remove this completed task from the board? This cannot be undone.')) {
-        return;
-    }
-    fetch('api/task_webhook.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            action: 'delete_task',
-            task_id: taskId
-        })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            showAlert('Task removed.', 'success');
-            loadAllItems();
-        } else {
-            showAlert('Failed: ' + data.message, 'danger');
-        }
-    })
-    .catch(() => showAlert('Error removing task', 'danger'));
 }
 
 function deleteServiceRequest(requestId) {
@@ -2790,175 +2704,7 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     max-width: 400px;
 }
 
-/* Modern Statistics Card Styling */
-.stat-card-modern {
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 16px;
-    padding: 24px;
-    transition: all 0.3s ease;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    position: relative;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    cursor: pointer;
-}
-
-.stat-card-modern:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    border-color: #dee2e6;
-}
-
-.stat-icon-wrapper {
-    width: 64px;
-    height: 64px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.stat-icon-wrapper i {
-    color: white;
-    font-size: 28px;
-}
-
-.stat-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.stat-number {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #212529;
-    margin: 0 0 4px 0;
-    line-height: 1.2;
-}
-
-.stat-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin: 0;
-    font-weight: 500;
-}
-
-.stat-arrow {
-    color: #6c757d;
-    font-size: 1rem;
-    opacity: 0.5;
-    transition: all 0.3s ease;
-    flex-shrink: 0;
-}
-
-.stat-card-modern:hover .stat-arrow {
-    opacity: 1;
-    transform: translateX(4px);
-    color: #212529;
-}
-
-.stat-card-blue-modern:hover {
-    border-color: #007bff;
-}
-
-.stat-card-yellow-modern:hover {
-    border-color: #ffc107;
-}
-
-.stat-card-green-modern:hover {
-    border-color: #28a745;
-}
-
-/* Legacy Statistics Card Styling (for backward compatibility) */
-/* Modern Statistics Card Styling */
-.stat-card-modern {
-    background: white;
-    border: 1px solid #e9ecef;
-    border-radius: 16px;
-    padding: 24px;
-    transition: all 0.3s ease;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    position: relative;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-    cursor: pointer;
-}
-
-.stat-card-modern:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    border-color: #dee2e6;
-}
-
-.stat-icon-wrapper {
-    width: 64px;
-    height: 64px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-}
-
-.stat-icon-wrapper i {
-    color: white;
-    font-size: 28px;
-}
-
-.stat-content {
-    flex: 1;
-    min-width: 0;
-}
-
-.stat-number {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #212529;
-    margin: 0 0 4px 0;
-    line-height: 1.2;
-}
-
-.stat-label {
-    font-size: 0.875rem;
-    color: #6c757d;
-    margin: 0;
-    font-weight: 500;
-}
-
-.stat-arrow {
-    color: #6c757d;
-    font-size: 1rem;
-    opacity: 0.5;
-    transition: all 0.3s ease;
-    flex-shrink: 0;
-}
-
-.stat-card-modern:hover .stat-arrow {
-    opacity: 1;
-    transform: translateX(4px);
-    color: #212529;
-}
-
-.stat-card-blue-modern:hover {
-    border-color: #007bff;
-}
-
-.stat-card-yellow-modern:hover {
-    border-color: #ffc107;
-}
-
-.stat-card-green-modern:hover {
-    border-color: #28a745;
-}
-
+/* Statistics Card Styling */
 .stat-card {
     background: white;
     border: 1px solid #e9ecef;

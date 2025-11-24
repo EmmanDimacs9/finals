@@ -31,7 +31,9 @@ function ensureMaintenanceColumns($conn) {
         'processing_time' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_time` varchar(255) DEFAULT NULL",
         'processing_deadline' => "ALTER TABLE `maintenance_records` ADD COLUMN `processing_deadline` datetime DEFAULT NULL",
         'completed_within_sla' => "ALTER TABLE `maintenance_records` ADD COLUMN `completed_within_sla` tinyint(1) DEFAULT NULL",
-        'request_id' => "ALTER TABLE `maintenance_records` ADD COLUMN `request_id` int(11) DEFAULT NULL"
+        'request_id' => "ALTER TABLE `maintenance_records` ADD COLUMN `request_id` int(11) DEFAULT NULL",
+        'started_at' => "ALTER TABLE `maintenance_records` ADD COLUMN `started_at` datetime DEFAULT NULL",
+        'completed_at' => "ALTER TABLE `maintenance_records` ADD COLUMN `completed_at` datetime DEFAULT NULL"
     ];
 
     foreach ($columns as $column => $query) {
@@ -289,6 +291,19 @@ try {
             $params = [$support_level, $processing_time, $deadline];
             $types = "sss";
 
+            // Add start_time if provided, otherwise set to NOW()
+            $start_time = $input['start_time'] ?? null;
+            if ($start_time) {
+                // Convert to MySQL datetime format if needed
+                $start_time_formatted = date('Y-m-d H:i:s', strtotime($start_time));
+                $update_fields[] = "started_at = ?";
+                $params[] = $start_time_formatted;
+                $types .= "s";
+            } else {
+                // If no start_time provided, set it to current time (no parameter needed)
+                $update_fields[] = "started_at = NOW()";
+            }
+
             if ($notes !== '') {
                 $update_fields[] = "description = ?";
                 $params[] = $notes;
@@ -306,6 +321,52 @@ try {
                 $response['message'] = 'Support level assigned and timer started.';
             } else {
                 throw new Exception('Failed to assign support level: ' . $stmt->error);
+            }
+            break;
+
+        case 'accept_maintenance_request':
+            if (!isset($input['maintenance_id'])) {
+                throw new Exception('Maintenance ID is required');
+            }
+
+            ensureMaintenanceColumns($conn);
+            $maintenance_id = intval($input['maintenance_id']);
+
+            $stmt = $conn->prepare("
+                UPDATE maintenance_records 
+                SET status = 'in_progress', updated_at = NOW() 
+                WHERE id = ? AND (status = 'scheduled' OR status = 'pending')
+            ");
+            $stmt->bind_param("i", $maintenance_id);
+
+            if ($stmt->execute()) {
+                if ($stmt->affected_rows > 0) {
+                    $response['success'] = true;
+                    $response['message'] = 'Maintenance request accepted and moved to In Progress.';
+                } else {
+                    throw new Exception('Maintenance request not found or already accepted.');
+                }
+            } else {
+                throw new Exception('Failed to accept maintenance request: ' . $stmt->error);
+            }
+            break;
+
+        case 'delete_maintenance':
+            if (!isset($input['maintenance_id'])) {
+                throw new Exception('Maintenance ID is required');
+            }
+
+            ensureMaintenanceColumns($conn);
+            $maintenance_id = intval($input['maintenance_id']);
+            $stmt = $conn->prepare("DELETE FROM maintenance_records WHERE id = ? AND status = 'completed'");
+            $stmt->bind_param("i", $maintenance_id);
+            $stmt->execute();
+
+            if ($stmt->affected_rows > 0) {
+                $response['success'] = true;
+                $response['message'] = 'Maintenance record removed from board.';
+            } else {
+                throw new Exception('Maintenance record not found or not yet completed.');
             }
             break;
 
@@ -331,6 +392,19 @@ try {
                 $update_fields[] = "remarks = ?";
                 $params[] = $remarks;
                 $types .= "s";
+                
+                // Add end_time (completed_at) if provided
+                $end_time = $input['end_time'] ?? null;
+                if ($end_time) {
+                    // Convert to MySQL datetime format if needed
+                    $end_time_formatted = date('Y-m-d H:i:s', strtotime($end_time));
+                    $update_fields[] = "completed_at = ?";
+                    $params[] = $end_time_formatted;
+                    $types .= "s";
+                } else {
+                    // If no end_time provided, set it to current time
+                    $update_fields[] = "completed_at = NOW()";
+                }
             } elseif ($remarks !== '') {
                 $update_fields[] = "remarks = ?";
                 $params[] = $remarks;

@@ -8,7 +8,7 @@ if (isLoggedIn()) {
         header('Location: ../admin/dashboard.php');
         exit();
     } elseif(isTechnician()){
-        header('Location: indet.php');
+        header('Location: kanban.php');
         exit();
     }
 }
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $ip_address = $_SERVER['REMOTE_ADDR'];
                 $user_agent = $_SERVER['HTTP_USER_AGENT'];
              
-              header('Location: indet.php');
+              header('Location: kanban.php');
                exit();
             } else {
                 $error = 'Invalid password.';

@@ -15,13 +15,17 @@
                 <i class="fas fa-chart-bar"></i>
                 <span>Reports</span>
             </a>
+            <a href="users.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'users.php' ? 'active' : ''; ?>">
+                <i class="fas fa-user-plus"></i>
+                <span>Accounts</span>
+            </a>
             <a href="history.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'history.php' ? 'active' : ''; ?>">
                 <i class="fas fa-history"></i>
                 <span>History</span>
             </a>
-            <a href="activity_logs.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'activity_logs.php' ? 'active' : ''; ?>">
-                <i class="fas fa-clipboard-list"></i>
-                <span>Activity Logs</span>
+            <a href="profile.php" class="nav-item <?php echo basename($_SERVER['PHP_SELF']) == 'profile.php' ? 'active' : ''; ?>">
+                <i class="fas fa-user"></i>
+                <span>Profile</span>
             </a>
         </div>
     </nav>

@@ -40,9 +40,54 @@ require_once 'header.php';
 
             <div id="alert-container"></div>
 
-            <div class="row">
+            <!-- Statistics Section -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-chart-pie text-danger"></i> My Statistics
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row text-center g-3">
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
+                                        <i class="fas fa-desktop fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-equipment">0</h3>
+                                        <small class="text-muted">Equipment Assigned</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
+                                        <i class="fas fa-clipboard-check fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-tasks">0</h3>
+                                        <small class="text-muted">Tasks Assigned</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-yellow clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
+                                        <i class="fas fa-tools fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-maintenance">0</h3>
+                                        <small class="text-muted">Maintenance Records</small>
+                                    </div>
+                                </div>
+                                <div class="col-6 col-md-3">
+                                    <div class="stat-card stat-card-green clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
+                                        <i class="fas fa-calendar fa-3x mb-3"></i>
+                                        <h3 class="mb-2" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
+                                        <small class="text-muted">Current Month</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="kanban-board-container">
                 <!-- Pending -->
-                <div class="col-md-4">
+                <div class="kanban-column-wrapper">
                     <div class="card kanban-column">
                         <div class="card-header kanban-header kanban-header-pending">
                             <h5 class="mb-0">
@@ -52,12 +97,16 @@ require_once 'header.php';
                         </div>
                         <div class="card-body">
                             <div class="task-list" data-status="pending" id="pending-tasks"></div>
+                            <div class="empty-state" id="empty-pending">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <p class="text-muted mb-0">No Pending</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- In Progress -->
-                <div class="col-md-4">
+                <div class="kanban-column-wrapper">
                     <div class="card kanban-column">
                         <div class="card-header kanban-header kanban-header-progress">
                             <h5 class="mb-0">
@@ -67,12 +116,16 @@ require_once 'header.php';
                         </div>
                         <div class="card-body">
                             <div class="task-list" data-status="in_progress" id="in-progress-tasks"></div>
+                            <div class="empty-state" id="empty-in-progress">
+                                <i class="fas fa-cogs fa-3x mb-3"></i>
+                                <p class="text-muted mb-0">No In Progress</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Completed -->
-                <div class="col-md-4">
+                <div class="kanban-column-wrapper">
                     <div class="card kanban-column">
                         <div class="card-header kanban-header kanban-header-complete">
                             <h5 class="mb-0">
@@ -82,6 +135,10 @@ require_once 'header.php';
                         </div>
                         <div class="card-body">
                             <div class="task-list" data-status="completed" id="completed-tasks"></div>
+                            <div class="empty-state" id="empty-completed">
+                                <i class="fas fa-check-circle fa-3x mb-3"></i>
+                                <p class="text-muted mb-0">No Completed</p>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -102,6 +159,11 @@ require_once 'header.php';
         <form id="completeForm">
           <input type="hidden" name="item_id" id="completeItemId">
           <input type="hidden" name="item_type" id="completeItemType"> <!-- task / maintenance -->
+          <div class="mb-3">
+            <label class="form-label">End Time</label>
+            <input type="text" class="form-control" id="completeEndTime" readonly>
+            <small class="text-muted">This is automatically set when you mark the item as complete</small>
+          </div>
           <div class="mb-3">
             <label class="form-label">Remarks</label>
             <textarea class="form-control" name="remarks" id="completeRemarks" rows="3" required></textarea>
@@ -125,6 +187,50 @@ require_once 'header.php';
       </div>
       <div class="modal-body">
         <div id="observeRequestDetails"></div>
+        
+        <!-- Observation Timer -->
+        <div class="card mt-3">
+          <div class="card-header bg-light">
+            <h6 class="mb-0"><i class="fas fa-clock"></i> Observation Timer</h6>
+          </div>
+          <div class="card-body">
+            <div class="row text-center mb-3">
+              <div class="col-4">
+                <div class="timer-display">
+                  <label class="form-label text-muted small">Start Time</label>
+                  <div class="timer-value" id="observeStartTime">--:--:--</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="timer-display">
+                  <label class="form-label text-muted small">Duration</label>
+                  <div class="timer-value" id="observeDuration">00:00:00</div>
+                </div>
+              </div>
+              <div class="col-4">
+                <div class="timer-display">
+                  <label class="form-label text-muted small">Stop Time</label>
+                  <div class="timer-value" id="observeStopTime">--:--:--</div>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2 justify-content-center">
+              <button type="button" class="btn btn-success" id="observeStartBtn" onclick="startObservationTimer()">
+                <i class="fas fa-play"></i> Start
+              </button>
+              <button type="button" class="btn btn-warning" id="observeStopBtn" onclick="stopObservationTimer()" disabled>
+                <i class="fas fa-stop"></i> Stop
+              </button>
+              <button type="button" class="btn btn-secondary" id="observeResetBtn" onclick="resetObservationTimer()">
+                <i class="fas fa-redo"></i> Reset
+              </button>
+            </div>
+            <input type="hidden" id="observeStartTimeValue">
+            <input type="hidden" id="observeStopTimeValue">
+            <input type="hidden" id="observeDurationValue">
+          </div>
+        </div>
+        
         <div class="alert alert-info mt-3">
           <i class="fas fa-info-circle"></i> <strong>Next Step:</strong> After observing the equipment, assign the appropriate support level (L1-L4) based on the complexity of the issue.
         </div>
@@ -175,6 +281,16 @@ require_once 'header.php';
             <label class="form-label">Initial Notes</label>
             <textarea class="form-control" id="serviceRequestAccomplishment" rows="3" placeholder="Add any initial notes about the observation or planned work..."></textarea>
           </div>
+          
+          <!-- Observation Timer Data (hidden, populated from observe modal) -->
+          <input type="hidden" id="serviceRequestObserveStartTime">
+          <input type="hidden" id="serviceRequestObserveStopTime">
+          <input type="hidden" id="serviceRequestObserveDuration">
+          
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle"></i> <strong>Note:</strong> This will save the support level and keep the task in "In Progress". Use the "Mark Complete" button to finish the task.
+          </div>
+          
           <button type="submit" class="btn btn-warning w-100">
             <i class="fas fa-save"></i> Save Support Level & Processing Time
           </button>
@@ -224,6 +340,12 @@ require_once 'header.php';
             <textarea class="form-control" id="completeServiceRequestRemarks" rows="3" placeholder="Add any final remarks, recommendations, or notes for the client..." required></textarea>
             <small class="text-muted">This will be visible to the department</small>
           </div>
+          
+          <!-- Observation Timer Data (hidden, populated from saved data or assign modal) -->
+          <input type="hidden" id="completeObserveStartTime">
+          <input type="hidden" id="completeObserveStopTime">
+          <input type="hidden" id="completeObserveDuration">
+          
           <button type="submit" class="btn btn-success w-100">
             <i class="fas fa-check-circle"></i> Mark as Complete & Notify Department
           </button>
@@ -291,6 +413,11 @@ require_once 'header.php';
             <label class="form-label">Observation Notes</label>
             <textarea class="form-control" id="maintenanceObservationNotes" rows="3" placeholder="Add observation notes or planned actions (optional)"></textarea>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Start Time</label>
+            <input type="text" class="form-control" id="maintenanceStartTime" readonly>
+            <small class="text-muted">This is automatically set when you assign the support level</small>
+          </div>
           <button type="submit" class="btn btn-warning w-100">
             <i class="fas fa-save"></i> Save Support Level & Start Maintenance
           </button>
@@ -328,12 +455,41 @@ let autoRefreshInterval;
 let currentUserId = <?php echo $user_id; ?>;
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize empty states as hidden
+    ['pending','in_progress','completed'].forEach(status => {
+        const emptyState = document.getElementById(`empty-${status.replace('_','-')}`);
+        if (emptyState) {
+            emptyState.style.display = 'none';
+        }
+    });
+    
+    // Reset timer when observe modal is closed
+    const observeModal = document.getElementById('observeModal');
+    if (observeModal) {
+        observeModal.addEventListener('hidden.bs.modal', function() {
+            if (observationTimer) {
+                stopObservationTimer();
+            }
+        });
+    }
+    
     loadAllItems();
     startAutoRefresh();
+    loadStatistics();
 
     const filterSelect = document.getElementById('requestTypeFilter');
     if (filterSelect) {
-        filterSelect.addEventListener('change', applyRequestFilter);
+        filterSelect.addEventListener('change', function() {
+            currentFilter.type = this.value;
+            currentFilter.month = null; // Reset month filter when dropdown changes
+            
+            // Remove active class from all stat cards
+            document.querySelectorAll('.stat-card').forEach(card => {
+                card.classList.remove('stat-active');
+            });
+            
+            applyRequestFilter();
+        });
     }
 
     // Handle Complete Modal submit
@@ -370,7 +526,8 @@ document.addEventListener('DOMContentLoaded', function() {
             sendTaskStatusUpdate(id, 'completed', remarks);
             bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
         } else {
-            sendMaintenanceStatusUpdate(id, 'completed', remarks);
+            const endTime = document.getElementById('completeEndTime').value;
+            sendMaintenanceStatusUpdate(id, 'completed', remarks, endTime);
             bootstrap.Modal.getInstance(document.getElementById('completeModal')).hide();
         }
     });
@@ -418,6 +575,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
 
+            const startTime = document.getElementById('maintenanceStartTime').value;
+            
             fetch('api/task_webhook.php', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -426,7 +585,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     maintenance_id: maintenanceId,
                     support_level: supportLevel,
                     processing_time: processingTime,
-                    notes: notes || null
+                    notes: notes || null,
+                    start_time: startTime
                 })
             })
             .then(res => res.json())
@@ -451,6 +611,14 @@ document.addEventListener('DOMContentLoaded', function() {
         const processingTime = document.getElementById('serviceRequestProcessingTime').value;
         const accomplishment = document.getElementById('serviceRequestAccomplishment').value.trim();
         
+        // Get observation timer data (from observe modal or assign modal hidden fields)
+        const observeStartTime = document.getElementById('serviceRequestObserveStartTime').value || 
+                                 (document.getElementById('observeStartTimeValue') ? document.getElementById('observeStartTimeValue').value : '');
+        const observeStopTime = document.getElementById('serviceRequestObserveStopTime').value || 
+                               (document.getElementById('observeStopTimeValue') ? document.getElementById('observeStopTimeValue').value : '');
+        const observeDuration = document.getElementById('serviceRequestObserveDuration').value || 
+                               (document.getElementById('observeDurationValue') ? document.getElementById('observeDurationValue').value : '');
+        
         if (!supportLevel || !processingTime) {
             alert('Please select a support level and enter processing time.');
             return;
@@ -471,16 +639,19 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
                 action: 'update_service_request',
                 request_id: requestId,
-                new_status: dbStatus,
+                new_status: 'In Progress', // Keep in In Progress, don't complete
                 support_level: supportLevel,
                 processing_time: processingTime,
-                accomplishment: accomplishment || null
+                accomplishment: accomplishment || null,
+                observe_start_time: observeStartTime || null,
+                observe_stop_time: observeStopTime || null,
+                observe_duration: observeDuration || null
             })
         })
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showAlert('Support level assigned and timer started!', 'success');
+                showAlert('Support level and processing time saved! Task remains in progress. Click "Mark Complete" when finished.', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('updateServiceRequestModal')).hide();
                 loadAllItems();
             } else {
@@ -499,6 +670,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const accomplishment = document.getElementById('completeServiceRequestAccomplishment').value.trim();
         const remarks = document.getElementById('completeServiceRequestRemarks').value.trim();
         
+        // Get observation timer data (from complete modal hidden fields, assign modal, or observe modal)
+        const observeStartTime = document.getElementById('completeObserveStartTime').value || 
+                                 document.getElementById('serviceRequestObserveStartTime').value || 
+                                 (document.getElementById('observeStartTimeValue') ? document.getElementById('observeStartTimeValue').value : '');
+        const observeStopTime = document.getElementById('completeObserveStopTime').value || 
+                               document.getElementById('serviceRequestObserveStopTime').value || 
+                               (document.getElementById('observeStopTimeValue') ? document.getElementById('observeStopTimeValue').value : '');
+        const observeDuration = document.getElementById('completeObserveDuration').value || 
+                               document.getElementById('serviceRequestObserveDuration').value || 
+                               (document.getElementById('observeDurationValue') ? document.getElementById('observeDurationValue').value : '');
+        
         if (!supportLevel || !processingTime || !accomplishment || !remarks) {
             alert("Please fill in all required fields.");
             return;
@@ -510,11 +692,14 @@ document.addEventListener('DOMContentLoaded', function() {
             body: JSON.stringify({
                 action: 'update_service_request',
                 request_id: requestId,
-                new_status: 'completed',
+                new_status: 'completed', // Only this button moves to completed
                 support_level: supportLevel,
                 processing_time: processingTime,
                 accomplishment: accomplishment,
-                remarks: remarks
+                remarks: remarks,
+                observe_start_time: observeStartTime || null,
+                observe_stop_time: observeStopTime || null,
+                observe_duration: observeDuration || null
             })
         })
         .then(res => res.json())
@@ -530,6 +715,29 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(() => showAlert('Error completing request', 'danger'));
     });
 });
+
+// Load Statistics
+function loadStatistics() {
+    fetch('get_statistics.php')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('kanban-stat-equipment').textContent = data.equipment_count || 0;
+                document.getElementById('kanban-stat-tasks').textContent = data.task_count || 0;
+                document.getElementById('kanban-stat-maintenance').textContent = data.maintenance_count || 0;
+            } else {
+                document.getElementById('kanban-stat-equipment').textContent = '0';
+                document.getElementById('kanban-stat-tasks').textContent = '0';
+                document.getElementById('kanban-stat-maintenance').textContent = '0';
+            }
+        })
+        .catch(err => {
+            console.error('Error fetching statistics:', err);
+            document.getElementById('kanban-stat-equipment').textContent = '0';
+            document.getElementById('kanban-stat-tasks').textContent = '0';
+            document.getElementById('kanban-stat-maintenance').textContent = '0';
+        });
+}
 
 // Refreshing
 function startAutoRefresh() { autoRefreshInterval = setInterval(loadAllItems, 10000); }
@@ -558,21 +766,68 @@ function updateStatusCounts() {
     ['pending','in_progress','completed'].forEach(status => {
         const container = document.getElementById(`${status.replace('_','-')}-tasks`);
         const badge = document.getElementById(`${status.replace('_','-')}-count`);
+        const emptyState = document.getElementById(`empty-${status.replace('_','-')}`);
+        
         if (!container || !badge) return;
+        
         const totalItems = container.querySelectorAll('.task-card:not(.d-none)').length;
         badge.textContent = totalItems;
+        
+        // Show/hide empty state
+        if (emptyState) {
+            if (totalItems === 0) {
+                emptyState.style.display = 'flex';
+            } else {
+                emptyState.style.display = 'none';
+            }
+        }
     });
 }
 
+let currentFilter = {
+    type: 'all',
+    month: null
+};
+
 function applyRequestFilter() {
     const filterSelect = document.getElementById('requestTypeFilter');
-    const selectedType = filterSelect ? filterSelect.value : 'all';
+    // Only update currentFilter.type from dropdown if it's not already set by stat card click
+    if (filterSelect && filterSelect.value !== 'all' && currentFilter.type === 'all') {
+        currentFilter.type = filterSelect.value;
+    }
+    
     const cards = document.querySelectorAll('.task-card');
 
     cards.forEach(card => {
         const cardType = card.getAttribute('data-card-type') || 'task';
-        // Always show tasks regardless of filter (filter only applies to service/system requests)
-        if (cardType === 'task' || selectedType === 'all' || cardType === selectedType) {
+        let shouldShow = true;
+        
+        // Apply type filter (from dropdown or stat card)
+        if (currentFilter.type !== 'all' && cardType !== currentFilter.type) {
+            shouldShow = false;
+        }
+        
+        // Apply month filter if active
+        if (currentFilter.month && shouldShow) {
+            const cardDate = card.getAttribute('data-created-date');
+            if (cardDate) {
+                try {
+                    const cardDateObj = new Date(cardDate);
+                    const filterMonth = currentFilter.month.getMonth();
+                    const filterYear = currentFilter.month.getFullYear();
+                    if (cardDateObj.getMonth() !== filterMonth || cardDateObj.getFullYear() !== filterYear) {
+                        shouldShow = false;
+                    }
+                } catch (e) {
+                    // Invalid date, hide card
+                    shouldShow = false;
+                }
+            } else {
+                shouldShow = false;
+            }
+        }
+        
+        if (shouldShow) {
             card.classList.remove('d-none');
         } else {
             card.classList.add('d-none');
@@ -580,6 +835,98 @@ function applyRequestFilter() {
     });
 
     updateStatusCounts();
+}
+
+function filterByType(type) {
+    // Reset month filter
+    currentFilter.month = null;
+    
+    // Remove active class from all stat cards
+    document.querySelectorAll('.stat-card').forEach(card => {
+        card.classList.remove('stat-active');
+    });
+    
+    // Set the filter dropdown
+    const filterSelect = document.getElementById('requestTypeFilter');
+    if (filterSelect) {
+        if (type === 'equipment') {
+            // Navigate to inventory page
+            window.location.href = 'inventory.php';
+            return;
+        } else if (type === 'task') {
+            // Toggle filter - if already filtering tasks, reset to all
+            if (currentFilter.type === 'task') {
+                currentFilter.type = 'all';
+                filterSelect.value = 'all';
+                showAlert('Showing all items.', 'info');
+            } else {
+                filterSelect.value = 'all';
+                currentFilter.type = 'task';
+                document.querySelectorAll('.stat-card')[1].classList.add('stat-active');
+                showAlert('Showing all tasks assigned to you.', 'info');
+            }
+        } else if (type === 'maintenance') {
+            // Toggle filter - if already filtering maintenance, reset to all
+            if (currentFilter.type === 'maintenance') {
+                currentFilter.type = 'all';
+                filterSelect.value = 'all';
+                showAlert('Showing all items.', 'info');
+            } else {
+                filterSelect.value = 'all';
+                currentFilter.type = 'maintenance';
+                document.querySelectorAll('.stat-card')[2].classList.add('stat-active');
+                showAlert('Showing all maintenance records.', 'info');
+            }
+        }
+    }
+    
+    // Apply filter
+    applyRequestFilter();
+    
+    // Scroll to kanban board
+    setTimeout(() => {
+        const kanbanColumn = document.querySelector('.kanban-column');
+        if (kanbanColumn) {
+            kanbanColumn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
+}
+
+function filterByMonth() {
+    // Toggle month filter - if already filtering by month, reset
+    if (currentFilter.month) {
+        currentFilter.month = null;
+        currentFilter.type = 'all';
+        const filterSelect = document.getElementById('requestTypeFilter');
+        if (filterSelect) {
+            filterSelect.value = 'all';
+        }
+        document.querySelectorAll('.stat-card')[3].classList.remove('stat-active');
+        showAlert('Showing all items.', 'info');
+    } else {
+        // Reset type filter
+        currentFilter.type = 'all';
+        const filterSelect = document.getElementById('requestTypeFilter');
+        if (filterSelect) {
+            filterSelect.value = 'all';
+        }
+        
+        // Set current month filter
+        currentFilter.month = new Date();
+        document.querySelectorAll('.stat-card')[3].classList.add('stat-active');
+        showAlert('Showing items from ' + new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }), 'info');
+    }
+    
+    // Apply filter
+    applyRequestFilter();
+    
+    // Scroll to kanban board
+    setTimeout(() => {
+        const kanbanColumn = document.querySelector('.kanban-column');
+        if (kanbanColumn) {
+            kanbanColumn.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, 100);
 }
 
 // ---------------- TASKS ----------------
@@ -640,7 +987,7 @@ function createTaskElement(task) {
     const completedDate = task.status === 'completed' && task.updated_at ? new Date(task.updated_at).toLocaleDateString() : null;
 
     return `
-    <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" data-task-id="${task.id}" data-card-type="task">
+    <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" data-task-id="${task.id}" data-card-type="task" data-created-date="${task.created_at}">
         <div class="task-header">
             <h6 class="task-title">${escapeHtml(task.title)}</h6>
             <span class="priority-badge priority-${task.priority}">${task.priority}</span>
@@ -665,6 +1012,11 @@ function createTaskElement(task) {
                 ${task.status === 'pending'
                     ? `<button class="btn btn-sm btn-success" onclick="updateTaskStatus(${task.id}, 'in_progress')">Start</button>`
                     : `<button class="btn btn-sm btn-success" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>`}
+            </div>` : `
+            <div class="task-actions">
+                <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${task.id})">
+                    <i class="fas fa-trash"></i> Remove
+                </button>
             </div>`}
     </div>`;
 }
@@ -709,7 +1061,7 @@ function createMaintenanceElement(record) {
     const timelineInfo = buildMaintenanceTimeline(record);
 
     return `
-    <div class="task-card maintenance-card ${statusClass}" data-maintenance-id="${record.id}" data-card-type="maintenance">
+    <div class="task-card maintenance-card ${statusClass}" data-maintenance-id="${record.id}" data-card-type="maintenance" data-created-date="${record.start_date || record.created_at || ''}">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-tools text-warning"></i> ${equipmentName}
@@ -743,7 +1095,13 @@ function createMaintenanceElement(record) {
         </div>
 
         <div class="task-actions mt-2">
-            ${record.status !== 'completed' ? `
+            ${record.status === 'pending' ? `
+            <button class="btn btn-sm btn-primary w-100" onclick="acceptMaintenanceRequest(${record.id})">
+                <i class="fas fa-check"></i> Accept Request
+            </button>` : record.status === 'completed' ? `
+            <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteMaintenance(${record.id})">
+                <i class="fas fa-trash"></i> Remove
+            </button>` : `
             <button class="btn btn-sm btn-primary w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
                 <i class="fas fa-eye"></i> Observe Equipment
             </button>
@@ -752,9 +1110,6 @@ function createMaintenanceElement(record) {
             </button>
             <button class="btn btn-sm btn-success w-100" onclick="openCompleteMaintenanceModal(${record.id})">
                 <i class="fas fa-check-circle"></i> Mark Complete
-            </button>` : `
-            <button class="btn btn-sm btn-success w-100" disabled>
-                <i class="fas fa-check-circle"></i> Completed
             </button>`}
         </div>
     </div>`;
@@ -792,6 +1147,31 @@ function sendTaskStatusUpdate(id, status, remarks = '') {
     .catch(() => showAlert('Error updating task', 'danger'));
 }
 
+function deleteTask(taskId) {
+    if (!confirm('Remove this completed task from the board? This cannot be undone.')) {
+        return;
+    }
+    
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'delete_task',
+            task_id: taskId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Task removed from board.', 'success');
+            loadAllItems();
+        } else {
+            showAlert('Failed: ' + data.message, 'danger');
+        }
+    })
+    .catch(() => showAlert('Error removing task', 'danger'));
+}
+
 // ---------------- MAINTENANCE ----------------
 function updateMaintenanceStatus(maintenanceId, newStatus) {
     if (newStatus === 'completed') {
@@ -805,7 +1185,7 @@ function updateMaintenanceStatus(maintenanceId, newStatus) {
     }
 }
 
-function sendMaintenanceStatusUpdate(id, status, remarks = '') {
+function sendMaintenanceStatusUpdate(id, status, remarks = '', endTime = '') {
     fetch('api/task_webhook.php', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -813,7 +1193,8 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '') {
             action: 'update_maintenance_status',
             maintenance_id: id,
             new_status: status,
-            remarks: remarks
+            remarks: remarks,
+            end_time: endTime
         })
     })
     .then(res => res.json())
@@ -826,6 +1207,54 @@ function sendMaintenanceStatusUpdate(id, status, remarks = '') {
         }
     })
     .catch(() => showAlert('Error updating maintenance', 'danger'));
+}
+
+function acceptMaintenanceRequest(maintenanceId) {
+    if (confirm('Accept this maintenance request? It will be moved to In Progress.')) {
+        fetch('api/task_webhook.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'accept_maintenance_request',
+                maintenance_id: maintenanceId
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                showAlert('Maintenance request accepted and moved to In Progress!', 'success');
+                loadAllItems();
+            } else {
+                showAlert('Failed: ' + data.message, 'danger');
+            }
+        })
+        .catch(() => showAlert('Error accepting maintenance request', 'danger'));
+    }
+}
+
+function deleteMaintenance(maintenanceId) {
+    if (!confirm('Remove this completed maintenance record from the board? This cannot be undone.')) {
+        return;
+    }
+    
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'delete_maintenance',
+            maintenance_id: maintenanceId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Maintenance record removed from board.', 'success');
+            loadAllItems();
+        } else {
+            showAlert('Failed: ' + data.message, 'danger');
+        }
+    })
+    .catch(() => showAlert('Error removing maintenance record', 'danger'));
 }
 
 // ---------------- SERVICE REQUESTS ----------------
@@ -876,7 +1305,7 @@ function createServiceRequestElement(request) {
     const timelineInfo = buildServiceRequestTimeline(request);
     
     return `
-    <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}" data-card-type="service_request">
+    <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}" data-card-type="service_request" data-created-date="${request.created_at}">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-desktop text-primary"></i> ${escapeHtml(request.equipment || 'Service Request')}
@@ -1037,7 +1466,7 @@ function createSystemRequestElement(request) {
     const isAssigned = request.technician_id && request.technician_id == currentUserId && (request.status === 'pending' || request.status === 'in_progress');
     
     return `
-    <div class="task-card system-request-card ${statusClass}" data-system-request-id="${request.id}" data-card-type="system_request">
+    <div class="task-card system-request-card ${statusClass}" data-system-request-id="${request.id}" data-card-type="system_request" data-created-date="${request.created_at}">
         <div class="task-header">
             <h6 class="task-title">
                 <i class="fas fa-cog text-info"></i> ${escapeHtml(request.system_name || 'System Request')}
@@ -1151,9 +1580,82 @@ function acceptServiceRequest(requestId) {
 
 let currentObserveRequestId = null;
 let currentMaintenanceId = null;
+let observationTimer = null;
+let observationStartTime = null;
+let observationElapsed = 0;
+
+function startObservationTimer() {
+    observationStartTime = new Date();
+    observationElapsed = 0;
+    
+    document.getElementById('observeStartTime').textContent = observationStartTime.toLocaleTimeString();
+    document.getElementById('observeStartTimeValue').value = observationStartTime.toISOString();
+    document.getElementById('observeStopTime').textContent = '--:--:--';
+    document.getElementById('observeStopTimeValue').value = '';
+    document.getElementById('observeDuration').textContent = '00:00:00';
+    document.getElementById('observeDurationValue').value = '';
+    
+    document.getElementById('observeStartBtn').disabled = true;
+    document.getElementById('observeStopBtn').disabled = false;
+    document.getElementById('observeResetBtn').disabled = true;
+    
+    observationTimer = setInterval(() => {
+        observationElapsed += 1000;
+        const duration = formatDuration(observationElapsed);
+        document.getElementById('observeDuration').textContent = duration;
+        document.getElementById('observeDurationValue').value = duration;
+    }, 1000);
+}
+
+function stopObservationTimer() {
+    if (observationTimer) {
+        clearInterval(observationTimer);
+        observationTimer = null;
+    }
+    
+    const stopTime = new Date();
+    document.getElementById('observeStopTime').textContent = stopTime.toLocaleTimeString();
+    document.getElementById('observeStopTimeValue').value = stopTime.toISOString();
+    
+    document.getElementById('observeStartBtn').disabled = false;
+    document.getElementById('observeStopBtn').disabled = true;
+    document.getElementById('observeResetBtn').disabled = false;
+}
+
+function resetObservationTimer() {
+    if (observationTimer) {
+        clearInterval(observationTimer);
+        observationTimer = null;
+    }
+    
+    observationStartTime = null;
+    observationElapsed = 0;
+    
+    document.getElementById('observeStartTime').textContent = '--:--:--';
+    document.getElementById('observeStartTimeValue').value = '';
+    document.getElementById('observeStopTime').textContent = '--:--:--';
+    document.getElementById('observeStopTimeValue').value = '';
+    document.getElementById('observeDuration').textContent = '00:00:00';
+    document.getElementById('observeDurationValue').value = '';
+    
+    document.getElementById('observeStartBtn').disabled = false;
+    document.getElementById('observeStopBtn').disabled = true;
+    document.getElementById('observeResetBtn').disabled = true;
+}
+
+function formatDuration(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
 
 function openObserveModal(requestId) {
     currentObserveRequestId = requestId;
+    // Reset timer when opening modal
+    resetObservationTimer();
     // Fetch request details
     fetch('api/task_webhook.php', {
         method: 'POST',
@@ -1202,6 +1704,26 @@ function openObserveModal(requestId) {
 }
 
 function openServiceRequestModalFromObserve() {
+    // Stop timer if running and preserve timer data
+    if (observationTimer) {
+        stopObservationTimer();
+    }
+    
+    // Transfer timer data to assign modal
+    const startTime = document.getElementById('observeStartTimeValue').value;
+    const stopTime = document.getElementById('observeStopTimeValue').value;
+    const duration = document.getElementById('observeDurationValue').value;
+    
+    if (startTime) {
+        document.getElementById('serviceRequestObserveStartTime').value = startTime;
+    }
+    if (stopTime) {
+        document.getElementById('serviceRequestObserveStopTime').value = stopTime;
+    }
+    if (duration) {
+        document.getElementById('serviceRequestObserveDuration').value = duration;
+    }
+    
     bootstrap.Modal.getInstance(document.getElementById('observeModal')).hide();
     if (currentObserveRequestId) {
         openServiceRequestModal(currentObserveRequestId);
@@ -1291,10 +1813,31 @@ function openMaintenanceAssignModal(maintenanceId) {
             }
 
             document.getElementById('maintenanceObservationNotes').value = record.description || '';
+            
+            // Set start time if not already set
+            const startTimeInput = document.getElementById('maintenanceStartTime');
+            if (startTimeInput && !record.started_at) {
+                const now = new Date();
+                startTimeInput.value = now.toLocaleString();
+            } else if (startTimeInput && record.started_at) {
+                startTimeInput.value = new Date(record.started_at).toLocaleString();
+            }
+        }
+        // Set start time when modal opens (if not already set)
+        const startTimeInput = document.getElementById('maintenanceStartTime');
+        if (startTimeInput && !startTimeInput.value) {
+            const now = new Date();
+            startTimeInput.value = now.toLocaleString();
         }
         new bootstrap.Modal(document.getElementById('maintenanceAssignModal')).show();
     })
     .catch(() => {
+        // Set start time when modal opens
+        const startTimeInput = document.getElementById('maintenanceStartTime');
+        if (startTimeInput) {
+            const now = new Date();
+            startTimeInput.value = now.toLocaleString();
+        }
         new bootstrap.Modal(document.getElementById('maintenanceAssignModal')).show();
     });
 }
@@ -1541,8 +2084,35 @@ function openCompleteServiceRequestModal(requestId) {
                 }
                 document.getElementById('completeServiceRequestAccomplishment').value = request.accomplishment || '';
                 document.getElementById('completeServiceRequestRemarks').value = request.remarks || '';
+                
+                // Load observation timer data if available
+                if (request.observe_start_time) {
+                    document.getElementById('completeObserveStartTime').value = request.observe_start_time;
+                }
+                if (request.observe_stop_time) {
+                    document.getElementById('completeObserveStopTime').value = request.observe_stop_time;
+                }
+                if (request.observe_duration) {
+                    document.getElementById('completeObserveDuration').value = request.observe_duration;
+                }
             }
         }
+        
+        // Also try to get timer data from assign modal if available
+        const assignStartTime = document.getElementById('serviceRequestObserveStartTime') ? document.getElementById('serviceRequestObserveStartTime').value : '';
+        const assignStopTime = document.getElementById('serviceRequestObserveStopTime') ? document.getElementById('serviceRequestObserveStopTime').value : '';
+        const assignDuration = document.getElementById('serviceRequestObserveDuration') ? document.getElementById('serviceRequestObserveDuration').value : '';
+        
+        if (assignStartTime && !document.getElementById('completeObserveStartTime').value) {
+            document.getElementById('completeObserveStartTime').value = assignStartTime;
+        }
+        if (assignStopTime && !document.getElementById('completeObserveStopTime').value) {
+            document.getElementById('completeObserveStopTime').value = assignStopTime;
+        }
+        if (assignDuration && !document.getElementById('completeObserveDuration').value) {
+            document.getElementById('completeObserveDuration').value = assignDuration;
+        }
+        
         new bootstrap.Modal(document.getElementById('completeServiceRequestModal')).show();
     })
     .catch(() => {
@@ -1717,6 +2287,14 @@ function openCompleteModal(id, type) {
     document.getElementById('completeItemId').value = id;
     document.getElementById('completeItemType').value = type;
     document.getElementById('completeRemarks').value = '';
+    
+    // Set end time when modal opens
+    const endTimeInput = document.getElementById('completeEndTime');
+    if (endTimeInput) {
+        const now = new Date();
+        endTimeInput.value = now.toLocaleString();
+    }
+    
     new bootstrap.Modal(document.getElementById('completeModal')).show();
 }
 // Counts are now handled in individual render functions
@@ -1733,13 +2311,51 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 
 <style>
 /* Kanban Board Styling */
+.kanban-board-container {
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    min-height: 75vh;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+}
+
+.kanban-board-container::-webkit-scrollbar {
+    height: 8px;
+}
+
+.kanban-board-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.kanban-board-container::-webkit-scrollbar-thumb {
+    background: linear-gradient(90deg, #dc3545 0%, #343a40 100%);
+    border-radius: 10px;
+}
+
+.kanban-board-container::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(90deg, #c82333 0%, #23272b 100%);
+}
+
+.kanban-column-wrapper {
+    flex: 1 1 0;
+    min-width: 320px;
+    max-width: 100%;
+}
+
 .kanban-column { 
     height: 75vh; 
+    min-height: 600px;
     overflow-y: auto; 
     border-radius: 14px;
     border: 1px solid #e2e6ef;
     background: linear-gradient(180deg, #fdfdff 0%, #f6f7fb 100%);
     transition: all 0.35s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .kanban-column:hover {
@@ -1749,6 +2365,56 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 .kanban-column .card-body {
     padding: 18px;
     min-height: 200px;
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+}
+
+.empty-state {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    text-align: center;
+    color: #9ca3af;
+    min-height: 300px;
+}
+
+.empty-state i {
+    opacity: 0.4;
+    margin-bottom: 16px;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    font-weight: 500;
+    margin: 0;
+    opacity: 0.6;
+}
+
+/* Observation Timer Styling */
+.timer-display {
+    padding: 10px;
+}
+
+.timer-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #212529;
+    font-family: 'Courier New', monospace;
+    margin-top: 5px;
+}
+
+.timer-display label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#observeStartBtn, #observeStopBtn, #observeResetBtn {
+    min-width: 100px;
 }
 
 .kanban-header {
@@ -2083,11 +2749,111 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     max-width: 400px;
 }
 
+/* Statistics Card Styling */
+.stat-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 25px 15px;
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+}
+
+.stat-card-blue i {
+    color: #007bff;
+}
+
+.stat-card-yellow i {
+    color: #ffc107;
+}
+
+.stat-card-green i {
+    color: #28a745;
+}
+
+.stat-card h3 {
+    font-weight: 700;
+    color: #212529;
+    margin: 0;
+    font-size: 1.75rem;
+}
+
+.stat-card small {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.clickable-stat {
+    cursor: pointer;
+    position: relative;
+}
+
+.clickable-stat:hover {
+    border-color: #007bff;
+}
+
+.stat-active {
+    border: 2px solid #007bff !important;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+    background: linear-gradient(135deg, #f8f9ff 0%, #ffffff 100%);
+}
+
+.stat-active.stat-card-blue {
+    border-color: #007bff !important;
+}
+
+.stat-active.stat-card-yellow {
+    border-color: #ffc107 !important;
+    box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3) !important;
+}
+
+.stat-active.stat-card-green {
+    border-color: #28a745 !important;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3) !important;
+}
+
 /* Responsive Design */
+@media (max-width: 992px) {
+    .kanban-board-container {
+        flex-wrap: wrap;
+    }
+    
+    .kanban-column-wrapper {
+        flex: 1 1 100%;
+        min-width: 100%;
+        margin-bottom: 20px;
+    }
+    
+    .kanban-column {
+        height: 65vh;
+        min-height: 500px;
+    }
+}
+
 @media (max-width: 768px) {
+    .kanban-board-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .kanban-column-wrapper {
+        width: 100%;
+        min-width: 100%;
+    }
+    
     .kanban-column {
         height: 60vh;
-        margin-bottom: 20px;
+        min-height: 400px;
     }
     
     .task-card {
@@ -2097,6 +2863,28 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     .task-header {
         flex-direction: column;
         align-items: flex-start;
+    }
+    
+    .stat-card {
+        padding: 20px 10px;
+    }
+    
+    .stat-card i {
+        font-size: 2rem !important;
+    }
+    
+    .stat-card h3 {
+        font-size: 1.5rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .kanban-column {
+        height: 80vh;
+    }
+    
+    .kanban-board-container {
+        gap: 24px;
     }
 }
 </style>

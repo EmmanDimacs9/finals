@@ -452,9 +452,13 @@ try {
             $params = [];
             $types = '';
 
-            // For pending requests, show all. For assigned/in progress/completed, show only assigned to this technician
+            // Only show requests that have been assigned a technician by admin
+            // Requests without technician_id should NOT appear in technician kanban
             if ($status === 'Pending' || $status === 'pending') {
-                $where[] = "sr.status = 'Pending'";
+                // For pending, only show if assigned to this technician
+                $where[] = "sr.status = 'Pending' AND sr.technician_id = ?";
+                $params[] = $technician_id;
+                $types = 'i';
             } elseif (($status === 'In Progress' || $status === 'in_progress') && $technician_id) {
                 // Include both 'Assigned' and 'In Progress' statuses since both map to 'in_progress' column
                 $where[] = "(sr.status = 'In Progress' OR sr.status = 'Assigned') AND sr.technician_id = ?";
@@ -471,7 +475,8 @@ try {
                 $params[] = $technician_id;
                 $types = 'si';
             } elseif ($technician_id) {
-                $where[] = "(sr.technician_id = ? OR sr.status = 'Pending')";
+                // Only show requests assigned to this technician (no unassigned pending requests)
+                $where[] = "sr.technician_id = ?";
                 $params[] = $technician_id;
                 $types = 'i';
             }

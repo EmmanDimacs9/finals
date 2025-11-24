@@ -61,19 +61,61 @@ if (!$request) {
 $currentUser = getCurrentUser();
 $adminName = $currentUser ? $currentUser['name'] : 'Admin';
 
+// Check if this is a service request that needs technician assignment
+$technician_id = $_GET['technician_id'] ?? null;
+$isServiceRequest = ($request['form_type'] === 'ICT Service Request Form');
+
+// If it's a service request, technician assignment is required
+if ($isServiceRequest && !$technician_id) {
+    // Redirect back with error message - technician must be assigned
+    header("Location: request.php?error=Please+assign+a+technician+when+approving+service+requests");
+    exit;
+}
+
 $stmt = $conn->prepare("UPDATE requests SET status = 'Approved' WHERE id = ?");
 $stmt->bind_param("i", $id);
 
 if ($stmt->execute()) {
+    // If this is a service request, also update the service_requests table with technician assignment
+    if ($isServiceRequest && $technician_id) {
+        // Find the corresponding service_requests record (match by user_id and form data)
+        $formData = json_decode($request['form_data'] ?? '{}', true);
+        $equipment = $formData['equipment'] ?? '';
+        $requirements = $formData['requirements'] ?? '';
+        $office = $formData['office'] ?? '';
+        
+        // Update service_requests table - find by user_id, equipment, and requirements
+        // Match the most recent unassigned pending request
+        $serviceRequestUpdate = $conn->prepare("
+            UPDATE service_requests 
+            SET technician_id = ?, status = 'Pending', updated_at = NOW() 
+            WHERE user_id = ? 
+            AND status = 'Pending' 
+            AND technician_id IS NULL
+            AND equipment = ?
+            AND requirements = ?
+            AND created_at >= DATE_SUB(?, INTERVAL 2 DAY)
+            ORDER BY created_at DESC 
+            LIMIT 1
+        ");
+        
+        if ($serviceRequestUpdate) {
+            $requestCreatedAt = $request['created_at'];
+            $serviceRequestUpdate->bind_param("iisss", $technician_id, $request['user_id'], $equipment, $requirements, $requestCreatedAt);
+            $serviceRequestUpdate->execute();
+            $serviceRequestUpdate->close();
+        }
+    }
+    
     // Send notification to department admin
     if ($request['email']) {
         notifyDeptAdminRequestStatus($id, $request['form_type'], 'Approved', $request['email'], $adminName);
     }
     
     if (function_exists('addLog')) {
-        addLog($conn, $_SESSION['user_id'], "Admin approved request ID: $id");
+        addLog($conn, $_SESSION['user_id'], "Admin approved request ID: $id" . ($technician_id ? " and assigned technician ID: $technician_id" : ""));
     }
-    header("Location: request.php?msg=Request+Approved+Successfully");
+    header("Location: request.php?msg=Request+Approved+Successfully" . ($technician_id ? "+and+Technician+Assigned" : ""));
     exit;
 } else {
     die("Database Error: " . $conn->error);

@@ -333,6 +333,9 @@ require_once 'header.php';
         <div class="alert alert-success">
           <i class="fas fa-info-circle"></i> <strong>Final Step:</strong> Provide all required information to complete this service request. The department will be notified and can evaluate your work.
         </div>
+        <div class="alert alert-info">
+          <i class="fas fa-clipboard-check"></i> <strong>Note:</strong> After completion, the department can submit their evaluation survey at <strong>checklist.php</strong>. You can view their ratings and feedback on the completed service request card in the kanban board.
+        </div>
         <form id="completeServiceRequestForm">
           <input type="hidden" id="completeServiceRequestId">
           <div class="row">
@@ -452,7 +455,7 @@ require_once 'header.php';
 <div class="modal fade" id="feedbackPreviewModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
+      <div class="modal-header bg-success text-white">
         <h5 class="modal-title"><i class="fas fa-star"></i> Feedback Preview - Satisfaction Levels</h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
@@ -726,7 +729,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showAlert('Service request completed!', 'success');
+                showAlert('Service request completed! The department can now submit their evaluation survey at checklist.php. You can view their ratings here once submitted.', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('completeServiceRequestModal')).hide();
                 loadAllItems();
             } else {
@@ -1031,11 +1034,11 @@ function createTaskElement(task) {
             </div>` : `
             <div class="task-actions">
                 ${task.status === 'pending'
-                    ? `<button class="btn btn-sm btn-success" onclick="updateTaskStatus(${task.id}, 'in_progress')">Start</button>`
-                    : `<button class="btn btn-sm btn-success" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>`}
+                    ? `<button class="btn btn-sm btn-primary" onclick="updateTaskStatus(${task.id}, 'in_progress')">Start</button>`
+                    : `<button class="btn btn-sm btn-warning" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>`}
             </div>` : `
             <div class="task-actions">
-                <button class="btn btn-sm btn-outline-danger" onclick="deleteTask(${task.id})">
+                <button class="btn btn-sm btn-success" onclick="deleteTask(${task.id})">
                     <i class="fas fa-trash"></i> Remove
                 </button>
             </div>`}
@@ -1092,10 +1095,10 @@ function createMaintenanceElement(record) {
 
         <div class="service-request-info maintenance-info">
             <div class="mb-2">
-                <strong><i class="fas fa-wrench"></i> Type:</strong> ${escapeHtml(record.maintenance_type)}
+                <strong><i class="fas fa-wrench text-warning"></i> Type:</strong> ${escapeHtml(record.maintenance_type)}
             </div>
             <div class="mb-2">
-                <strong><i class="fas fa-user-cog"></i> Technician:</strong> ${technicianName}
+                <strong><i class="fas fa-user-cog text-warning"></i> Technician:</strong> ${technicianName}
             </div>
             ${record.support_level ? `
             <div class="mb-2">
@@ -1120,16 +1123,16 @@ function createMaintenanceElement(record) {
             <button class="btn btn-sm btn-primary w-100" onclick="acceptMaintenanceRequest(${record.id})">
                 <i class="fas fa-check"></i> Accept Request
             </button>` : record.status === 'completed' ? `
-            <button class="btn btn-sm btn-outline-danger w-100" onclick="deleteMaintenance(${record.id})">
+            <button class="btn btn-sm btn-success w-100" onclick="deleteMaintenance(${record.id})">
                 <i class="fas fa-trash"></i> Remove
             </button>` : `
-            <button class="btn btn-sm btn-primary w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
+            <button class="btn btn-sm btn-warning w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
                 <i class="fas fa-eye"></i> Observe Equipment
             </button>
             <button class="btn btn-sm btn-warning w-100 mb-2" onclick="openMaintenanceAssignModal(${record.id})">
                 <i class="fas fa-layer-group"></i> Assign Support Level
             </button>
-            <button class="btn btn-sm btn-success w-100" onclick="openCompleteMaintenanceModal(${record.id})">
+            <button class="btn btn-sm btn-warning w-100" onclick="openCompleteMaintenanceModal(${record.id})">
                 <i class="fas fa-check-circle"></i> Mark Complete
             </button>`}
         </div>
@@ -1393,13 +1396,13 @@ function createServiceRequestElement(request) {
                        </button>`
                     : isAssigned
                     ? `<div class="d-grid gap-2">
-                           <button class="btn btn-sm btn-info" onclick="openObserveModal(${request.id})">
+                           <button class="btn btn-sm btn-warning" onclick="openObserveModal(${request.id})">
                                <i class="fas fa-eye"></i> Observe Equipment
                            </button>
                            <button class="btn btn-sm btn-warning" onclick="openServiceRequestModal(${request.id})">
                                <i class="fas fa-edit"></i> Assign Support Level
                            </button>
-                           <button class="btn btn-sm btn-success" onclick="openCompleteServiceRequestModal(${request.id})">
+                           <button class="btn btn-sm btn-warning" onclick="openCompleteServiceRequestModal(${request.id})">
                                <i class="fas fa-check-circle"></i> Mark Complete
                            </button>
                        </div>`
@@ -1415,28 +1418,45 @@ function createServiceRequestElement(request) {
                     </div>
                 ` : ''}
                 ${surveyCount > 0 ? `
-                    <div class="feedback-card mt-3 p-3 clickable-feedback" onclick="viewFeedbackPreview(${request.id})" style="cursor: pointer;">
+                    <div class="feedback-card mt-3 p-3 clickable-feedback" onclick="viewFeedbackPreview(${request.id})" style="cursor: pointer; border: 2px solid #198754; border-radius: 8px; background: linear-gradient(135deg, #d1e7dd 0%, #ffffff 100%);">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong><i class="fas fa-comment-dots text-primary"></i> Department Feedback</strong>
-                            ${surveyAverage ? `<span class="badge bg-primary">${surveyAverage}/5 Avg</span>` : ''}
+                            <strong><i class="fas fa-star text-warning"></i> Department Rating & Feedback</strong>
+                            ${surveyAverage ? `<span class="badge bg-warning text-dark" style="font-size: 1rem; padding: 0.5rem 0.75rem;">
+                                <i class="fas fa-star"></i> ${surveyAverage}/5.0
+                            </span>` : ''}
                         </div>
-                        ${surveyLatestComment ? `<p class="text-muted small mb-1">${surveyLatestComment}</p>` : '<p class="text-muted small mb-1">No additional comments provided.</p>'}
-                        ${surveyLatestAt ? `<small class="text-muted">Submitted: ${surveyLatestAt}</small>` : ''}
+                        <div class="mb-2">
+                            <div class="d-flex align-items-center mb-1">
+                                <i class="fas fa-chart-line text-success me-2"></i>
+                                <strong>Average Rating:</strong>
+                                <span class="badge bg-success ms-2">${surveyAverage}/5.0</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-users text-success me-2"></i>
+                                <strong>Total Responses:</strong>
+                                <span class="badge bg-success ms-2">${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}</span>
+                            </div>
+                        </div>
+                        ${surveyLatestComment ? `
+                            <div class="mt-2 p-2 bg-light rounded">
+                                <strong><i class="fas fa-comment text-success"></i> Latest Comment:</strong>
+                                <p class="text-muted small mb-1 mt-1">${surveyLatestComment}</p>
+                            </div>
+                        ` : ''}
+                        ${surveyLatestAt ? `<small class="text-muted d-block mt-2"><i class="fas fa-clock"></i> Submitted: ${surveyLatestAt}</small>` : ''}
                         <div class="mt-2">
-                            <span class="badge bg-light text-dark">
-                                <i class="fas fa-users"></i> ${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}
-                            </span>
-                            <span class="badge bg-info ms-2">
-                                <i class="fas fa-eye"></i> Click to view details
+                            <span class="badge bg-success">
+                                <i class="fas fa-eye"></i> Click to view detailed ratings
                             </span>
                         </div>
                     </div>
                 ` : `
                     <div class="alert alert-info mt-3 mb-0 py-2">
-                        <i class="fas fa-info-circle"></i> Awaiting department survey feedback.
+                        <i class="fas fa-clipboard-check"></i> Awaiting department survey feedback. 
+                        <br><small>The department can submit their evaluation at <strong>checklist.php</strong></small>
                     </div>
                 `}
-                <button class="btn btn-outline-danger btn-sm" onclick="deleteServiceRequest(${request.id})">
+                <button class="btn btn-success btn-sm" onclick="deleteServiceRequest(${request.id})">
                     <i class="fas fa-trash"></i> Remove
                 </button>
             </div>
@@ -1531,7 +1551,7 @@ function createSystemRequestElement(request) {
                        </button>`
                     : isAssigned
                     ? `<div class="d-grid gap-2">
-                           <button class="btn btn-sm btn-success" onclick="openCompleteSystemRequestModal(${request.id})">
+                           <button class="btn btn-sm btn-warning" onclick="openCompleteSystemRequestModal(${request.id})">
                                <i class="fas fa-check-circle"></i> Mark Complete
                            </button>
                        </div>`
@@ -2556,17 +2576,17 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 }
 
 .maintenance-card { 
-    border-left: 5px solid #7bd8b4;
-    background: linear-gradient(135deg, #ffffff 0%, #f3fbf8 100%);
+    border-left: 5px solid #ffc107;
+    background: linear-gradient(135deg, #ffffff 0%, #fffbf0 100%);
 }
 
 .maintenance-card:hover {
     border-left-width: 7px;
-    background: linear-gradient(135deg, #ffffff 0%, #e6f7ef 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #fff8e6 100%);
 }
 
 .maintenance-card .maintenance-info {
-    background: rgba(95, 182, 135, 0.08);
+    background: rgba(255, 193, 7, 0.1);
     border-radius: 10px;
     padding: 12px;
     font-size: 0.9rem;
@@ -2574,7 +2594,7 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 }
 
 .maintenance-card .maintenance-info strong {
-    color: #3c8a63;
+    color: #b8860b;
     font-weight: 600;
 }
 

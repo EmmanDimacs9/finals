@@ -22,6 +22,10 @@ if (!empty($_SESSION['profile_image'])) {
         $profileImageUrl = '../uploads/profiles/' . $pi;
     }
 }
+
+$docRootPath = str_replace('\\', '/', realpath($_SERVER['DOCUMENT_ROOT']));
+$technicianDirPath = str_replace('\\', '/', realpath(__DIR__));
+$technicianWebPath = rtrim(str_replace($docRootPath, '', $technicianDirPath), '/') . '/';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -38,6 +42,22 @@ if (!empty($_SESSION['profile_image'])) {
             --secondary-color: #343a40;
             --gray-color: #6c757d;
             --blue-color: #007bff;
+        }
+
+        .global-alert-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1100;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: calc(100% - 40px);
+        }
+
+        .global-alert-container .alert {
+            min-width: 260px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
         }
         
         body {
@@ -625,10 +645,6 @@ if (!empty($_SESSION['profile_image'])) {
                             <i class="fas fa-tasks"></i>
                             <span>My Tasks</span>
                         </a>
-                        <a href="inventory.php" class="quick-action-item">
-                            <i class="fas fa-boxes"></i>
-                            <span>Inventory</span>
-                        </a>
                         <a href="qr.php" class="quick-action-item">
                             <i class="fas fa-qrcode"></i>
                             <span>QR Scanner</span>
@@ -879,6 +895,35 @@ if (!empty($_SESSION['profile_image'])) {
 <!-- End My Statistics Modal -->
 
     <script>
+    const TECHNICIAN_WEB_PATH = '<?php echo addslashes($technicianWebPath); ?>';
+
+    function showGlobalAlert(type, message) {
+        if (!message) return;
+        let container = document.querySelector('.global-alert-container');
+        if (!container) {
+            container = document.createElement('div');
+            container.className = 'global-alert-container';
+            document.body.appendChild(container);
+        }
+
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.setAttribute('role', 'alert');
+        alert.innerHTML = `
+            <span>${message}</span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        container.appendChild(alert);
+
+        setTimeout(() => {
+            if (alert.classList.contains('show')) {
+                alert.classList.remove('show');
+                alert.classList.add('fade');
+            }
+            setTimeout(() => alert.remove(), 300);
+        }, 4000);
+    }
+
     function toggleDropdown() {
         const dropdown = document.getElementById('profileDropdown');
         const quickActionsMenu = document.getElementById('quickActionsMenu');
@@ -1071,6 +1116,63 @@ if (!empty($_SESSION['profile_image'])) {
                     this.setCustomValidity(isValid ? '' : 'Passwords do not match');
                 });
             }
+
+            changePasswordForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(changePasswordForm);
+                formData.append('ajax', '1');
+                fetch(TECHNICIAN_WEB_PATH + 'profile.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showGlobalAlert('success', data.message || 'Password updated successfully.');
+                        const modalEl = document.getElementById('changePasswordModal');
+                        if (modalEl) {
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                        }
+                        changePasswordForm.reset();
+                    } else {
+                        showGlobalAlert('danger', data.message || 'Failed to change password.');
+                    }
+                })
+                .catch(() => {
+                    showGlobalAlert('danger', 'Unable to update password right now. Please try again.');
+                });
+            });
+        }
+
+        const editProfileForm = document.getElementById('editProfileForm');
+        if (editProfileForm) {
+            editProfileForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(editProfileForm);
+                formData.append('ajax', '1');
+                fetch(TECHNICIAN_WEB_PATH + 'profile.php', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showGlobalAlert('success', data.message || 'Profile updated successfully.');
+                        const modalEl = document.getElementById('editProfileModal');
+                        if (modalEl) {
+                            const modal = bootstrap.Modal.getInstance(modalEl);
+                            if (modal) modal.hide();
+                        }
+                        setTimeout(() => window.location.reload(), 1200);
+                    } else {
+                        showGlobalAlert('danger', data.message || 'Failed to update profile.');
+                    }
+                })
+                .catch(() => {
+                    showGlobalAlert('danger', 'Unable to update profile right now. Please try again.');
+                });
+            });
         }
     });
     </script> 

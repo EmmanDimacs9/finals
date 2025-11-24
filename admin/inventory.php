@@ -57,20 +57,85 @@ foreach ($tables as $table) {
 sort($all_users);
 sort($all_locations);
 
-// Helper to return WHERE clause for search + user and location filters
-function buildWhere($search, $user_filter, $location_filter) {
+// Helper to build WHERE clause and parameters for prepared statements
+function buildWhereClause($search, $user_filter, $location_filter) {
     $clauses = [];
+    $params = [];
+    $types = '';
+    
     if (!empty($search)) {
-        $s = $search;
-        $clauses[] = "(asset_tag LIKE '%$s%' OR assigned_person LIKE '%$s%' OR location LIKE '%$s%')";
+        $clauses[] = "(asset_tag LIKE ? OR assigned_person LIKE ? OR location LIKE ?)";
+        $search_param = '%' . $search . '%';
+        $params[] = $search_param;
+        $params[] = $search_param;
+        $params[] = $search_param;
+        $types .= 'sss';
     }
     if (!empty($user_filter)) {
-        $clauses[] = "assigned_person = '$user_filter'";
+        $clauses[] = "assigned_person = ?";
+        $params[] = $user_filter;
+        $types .= 's';
     }
     if (!empty($location_filter)) {
-        $clauses[] = "location = '$location_filter'";
+        $clauses[] = "location = ?";
+        $params[] = $location_filter;
+        $types .= 's';
     }
-    return (count($clauses) > 0) ? ' WHERE ' . implode(' AND ', $clauses) : '';
+    
+    $where_clause = (count($clauses) > 0) ? ' WHERE ' . implode(' AND ', $clauses) : '';
+    
+    return [
+        'where' => $where_clause,
+        'params' => $params,
+        'types' => $types
+    ];
+}
+
+// Helper function to execute COUNT query with prepared statement
+function executeCountQuery($conn, $table, $where_data) {
+    $query = "SELECT COUNT(*) as total FROM `$table`" . $where_data['where'];
+    
+    if (empty($where_data['params'])) {
+        $result = $conn->query($query);
+        return $result ? $result->fetch_assoc()['total'] : 0;
+    }
+    
+    $stmt = $conn->prepare($query);
+    if (!$stmt) {
+        return 0;
+    }
+    
+    $stmt->bind_param($where_data['types'], ...$where_data['params']);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $count = $result->fetch_assoc()['total'] ?? 0;
+    $stmt->close();
+    
+    return $count;
+}
+
+// Helper function to execute SELECT query with prepared statement
+function executeSelectQuery($conn, $table, $where_data, $order_by, $limit, $offset) {
+    $query = "SELECT * FROM `$table`" . $where_data['where'] . " $order_by LIMIT ? OFFSET ?";
+    
+    $stmt = $conn->prepare($query);
+    if (!$stmt) {
+        return null;
+    }
+    
+    if (empty($where_data['params'])) {
+        $stmt->bind_param('ii', $limit, $offset);
+    } else {
+        $types = $where_data['types'] . 'ii';
+        $params = array_merge($where_data['params'], [$limit, $offset]);
+        $stmt->bind_param($types, ...$params);
+    }
+    
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $stmt->close();
+    
+    return $result;
 }
 
 // Helper function to build pagination URL
@@ -83,37 +148,26 @@ function buildPaginationUrl($page, $page_param, $search, $user_filter, $location
     return '?' . http_build_query($params);
 }
 
-// We'll fetch each table's rows separately (for the tabs)
-$desktop_where = buildWhere($search, $user_filter, $location_filter);
-$laptops_where = buildWhere($search, $user_filter, $location_filter);
-$printers_where = buildWhere($search, $user_filter, $location_filter);
-$accesspoint_where = buildWhere($search, $user_filter, $location_filter);
-$switch_where = buildWhere($search, $user_filter, $location_filter);
-$telephone_where = buildWhere($search, $user_filter, $location_filter);
+// Build WHERE clause data for all tables (using prepared statements)
+$where_data = buildWhereClause($search, $user_filter, $location_filter);
 
-// Get total counts for each table
-$desktop_count_q = "SELECT COUNT(*) as total FROM desktop" . $desktop_where;
-$desktop_total = $conn->query($desktop_count_q)->fetch_assoc()['total'] ?? 0;
+// Get total counts for each table using prepared statements
+$desktop_total = executeCountQuery($conn, 'desktop', $where_data);
 $desktop_total_pages = max(1, ceil($desktop_total / $items_per_page));
 
-$laptops_count_q = "SELECT COUNT(*) as total FROM laptops" . $laptops_where;
-$laptops_total = $conn->query($laptops_count_q)->fetch_assoc()['total'] ?? 0;
+$laptops_total = executeCountQuery($conn, 'laptops', $where_data);
 $laptops_total_pages = max(1, ceil($laptops_total / $items_per_page));
 
-$printers_count_q = "SELECT COUNT(*) as total FROM printers" . $printers_where;
-$printers_total = $conn->query($printers_count_q)->fetch_assoc()['total'] ?? 0;
+$printers_total = executeCountQuery($conn, 'printers', $where_data);
 $printers_total_pages = max(1, ceil($printers_total / $items_per_page));
 
-$accesspoint_count_q = "SELECT COUNT(*) as total FROM accesspoint" . $accesspoint_where;
-$accesspoint_total = $conn->query($accesspoint_count_q)->fetch_assoc()['total'] ?? 0;
+$accesspoint_total = executeCountQuery($conn, 'accesspoint', $where_data);
 $accesspoint_total_pages = max(1, ceil($accesspoint_total / $items_per_page));
 
-$switch_count_q = "SELECT COUNT(*) as total FROM `switch`" . $switch_where;
-$switch_total = $conn->query($switch_count_q)->fetch_assoc()['total'] ?? 0;
+$switch_total = executeCountQuery($conn, 'switch', $where_data);
 $switch_total_pages = max(1, ceil($switch_total / $items_per_page));
 
-$telephone_count_q = "SELECT COUNT(*) as total FROM telephone" . $telephone_where;
-$telephone_total = $conn->query($telephone_count_q)->fetch_assoc()['total'] ?? 0;
+$telephone_total = executeCountQuery($conn, 'telephone', $where_data);
 $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
 ?>
 <!DOCTYPE html>
@@ -395,8 +449,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $desktop_offset = ($desktop_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM desktop" . $desktop_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $desktop_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'desktop', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $desktop_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>
@@ -489,8 +542,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $laptops_offset = ($laptops_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM laptops" . $laptops_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $laptops_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'laptops', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $laptops_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>
@@ -579,8 +631,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $printers_offset = ($printers_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM printers" . $printers_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $printers_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'printers', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $printers_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>
@@ -669,8 +720,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $accesspoint_offset = ($accesspoint_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM accesspoint" . $accesspoint_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $accesspoint_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'accesspoint', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $accesspoint_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>
@@ -759,8 +809,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $switch_offset = ($switch_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM `switch`" . $switch_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $switch_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'switch', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $switch_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>
@@ -849,8 +898,7 @@ $telephone_total_pages = max(1, ceil($telephone_total / $items_per_page));
                                 <tbody>
                                     <?php
                                     $telephone_offset = ($telephone_page - 1) * $items_per_page;
-                                    $q = "SELECT * FROM telephone" . $telephone_where . " ORDER BY date_acquired DESC LIMIT $items_per_page OFFSET $telephone_offset";
-                                    $res = $conn->query($q);
+                                    $res = executeSelectQuery($conn, 'telephone', $where_data, 'ORDER BY date_acquired DESC', $items_per_page, $telephone_offset);
                                     if ($res && $res->num_rows > 0):
                                         while ($row = $res->fetch_assoc()):
                                     ?>

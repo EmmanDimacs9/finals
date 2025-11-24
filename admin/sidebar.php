@@ -25,12 +25,12 @@ $current_page = basename($_SERVER['PHP_SELF']);
         
         <!-- ICT Services -->
         <li class="nav-item">
-            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'users.php', 'reports.php']) ? 'active' : '' ?>" 
-               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'users.php', 'reports.php']) ? 'true' : 'false' ?>" 
+            <a class="nav-link dropdown-toggle <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'reports.php', 'users.php']) ? 'active' : '' ?>" 
+               data-bs-toggle="collapse" href="#ictServiceMenu" role="button" aria-expanded="<?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'reports.php', 'users.php']) ? 'true' : 'false' ?>" 
                aria-controls="ictServiceMenu">
                 <i class="fas fa-desktop"></i> ICT Services <i class="fas fa-chevron-down ms-1" style="font-size: 0.7rem;"></i>
             </a>
-            <div class="collapse <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'users.php', 'reports.php']) ? 'show' : '' ?>" id="ictServiceMenu">
+            <div class="collapse <?= in_array($current_page, ['prevention_maintenance.php', 'request.php', 'system_request.php', 'inventory.php', 'reports.php', 'users.php']) ? 'show' : '' ?>" id="ictServiceMenu">
                 <ul class="nav flex-column ms-3 mt-2">
                     <li class="nav-item">
                         <a href="prevention_maintenance.php" class="nav-link <?= $current_page === 'prevention_maintenance.php' ? 'active' : '' ?>">
@@ -55,6 +55,11 @@ $current_page = basename($_SERVER['PHP_SELF']);
                     <li class="nav-item">
                         <a href="reports.php" class="nav-link <?= $current_page === 'reports.php' ? 'active' : '' ?>">
                             <i class="fas fa-chart-bar"></i> Reports
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="users.php" class="nav-link <?= $current_page === 'users.php' ? 'active' : '' ?>">
+                            <i class="fas fa-user-plus"></i> Account Creation
                         </a>
                     </li>
                 </ul>

@@ -9,22 +9,37 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $error = '';
-$success = '';
+$success = isset($_GET['success']) ? $_GET['success'] : '';
+
+// Get role filter
+$role_filter = isset($_GET['role']) ? $_GET['role'] : 'all';
 
 // Handle registration
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['user_id'])) {
         $toDelete = (int)$_POST['user_id'];
-        $stmt = $conn->prepare("DELETE FROM users WHERE id = ? AND role = 'technician'");
-        $stmt->bind_param("i", $toDelete);
-        if ($stmt->execute()) {
-            include '../logger.php';
-            logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Delete Technician', 'Deleted technician ID ' . $toDelete);
-            $success = 'Technician deleted successfully!';
+        // Get user info before deletion for logging
+        $userInfoStmt = $conn->prepare("SELECT full_name, email, role FROM users WHERE id = ?");
+        $userInfoStmt->bind_param("i", $toDelete);
+        $userInfoStmt->execute();
+        $userInfo = $userInfoStmt->get_result()->fetch_assoc();
+        $userInfoStmt->close();
+        
+        // Prevent deleting yourself
+        if ($toDelete == $_SESSION['user_id']) {
+            $error = 'You cannot delete your own account.';
         } else {
-            $error = 'Failed to delete technician.';
+            $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
+            $stmt->bind_param("i", $toDelete);
+            if ($stmt->execute()) {
+                include '../logger.php';
+                logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Delete User', 'Deleted user: ' . ($userInfo['email'] ?? 'ID ' . $toDelete) . ' (' . ($userInfo['role'] ?? 'unknown') . ')');
+                $success = 'User deleted successfully!';
+            } else {
+                $error = 'Failed to delete user.';
+            }
+            $stmt->close();
         }
-        $stmt->close();
     } else {
         $full_name = trim($_POST['full_name']);
         $email = trim($_POST['email']);
@@ -35,10 +50,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         if (empty($full_name) || empty($email) || empty($phone_number) || empty($password)) {
             $error = 'Please fill in all fields';
+        } elseif (!preg_match('/^09\d{9}$/', $phone_number)) {
+            $error = 'Phone number must be exactly 11 digits starting with 09';
         } elseif ($password !== $confirm_password) {
             $error = 'Passwords do not match';
         } elseif (strlen($password) < 6) {
             $error = 'Password must be at least 6 characters long';
+        } elseif (!preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]).{6,}$/', $password)) {
+            $error = 'Password must contain at least one uppercase, one lowercase, one digit, and one special character';
         } else {
             $stmt = $conn->prepare("SELECT id FROM users WHERE email = ?");
             $stmt->bind_param("s", $email);
@@ -54,8 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 if ($stmt->execute()) {
                     include '../logger.php';
-                    logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Add Technician', 'Added technician ' . $email);
-                    $success = 'Admin account registered successfully!';
+                    $roleDisplay = ucwords(str_replace('_', ' ', $role));
+                    logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Add User', 'Added ' . $roleDisplay . ': ' . $email);
+                    header('Location: users.php?success=' . urlencode($roleDisplay . ' account registered successfully!'));
+                    exit();
                 } else {
                     $error = 'Registration failed. Please try again.';
                 }
@@ -65,9 +86,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
-// Fetch admins
-$result = $conn->query("SELECT id, full_name, email, role, phone_number, created_at FROM users WHERE role = 'technician' ORDER BY created_at DESC");
-$admins = $result->fetch_all(MYSQLI_ASSOC);
+// Build query with role filter
+if ($role_filter === 'all') {
+    $query = "SELECT id, full_name, email, role, phone_number, created_at FROM users ORDER BY created_at DESC";
+    $stmt = $conn->prepare($query);
+} else {
+    $query = "SELECT id, full_name, email, role, phone_number, created_at FROM users WHERE role = ? ORDER BY created_at DESC";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("s", $role_filter);
+}
+$stmt->execute();
+$result = $stmt->get_result();
+$users = $result->fetch_all(MYSQLI_ASSOC);
+$stmt->close();
+
+// Get counts for each role
+$countsQuery = "SELECT role, COUNT(*) as count FROM users GROUP BY role";
+$countsResult = $conn->query($countsQuery);
+$roleCounts = ['admin' => 0, 'technician' => 0, 'department_admin' => 0, 'depadmin' => 0];
+while ($row = $countsResult->fetch_assoc()) {
+    $roleCounts[$row['role']] = (int)$row['count'];
+}
+$totalUsers = array_sum($roleCounts);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -112,19 +152,62 @@ $admins = $result->fetch_all(MYSQLI_ASSOC);
 
             <!-- Main Content -->
             <div class="col-md-9 col-lg-10 main-content">
-                <h2><i class="fas fa-user-shield"></i> User Accounts</h2>
-
-                <!-- Add Button -->
-                <div class="mb-3 text-end">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div>
+                        <h2 class="mb-2"><i class="fas fa-user-shield"></i> User Accounts</h2>
+                        <p class="text-muted mb-0">Manage all registered user accounts</p>
+                    </div>
                     <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#addAdminModal">
                         <i class="fas fa-user-plus"></i> Add User
                     </button>
                 </div>
 
-                <!-- Admin Table -->
+                <?php if ($error): ?>
+                    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                        <i class="fas fa-exclamation-circle"></i> <?= htmlspecialchars($error); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($success): ?>
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <i class="fas fa-check-circle"></i> <?= htmlspecialchars($success); ?>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Role Filter and Statistics -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-body">
+                                <label class="form-label fw-bold mb-2">Filter by Role</label>
+                                <div class="btn-group w-100" role="group">
+                                    <a href="?role=all" class="btn <?= $role_filter === 'all' ? 'btn-danger' : 'btn-outline-danger' ?>">
+                                        All (<?= $totalUsers ?>)
+                                    </a>
+                                    <a href="?role=admin" class="btn <?= $role_filter === 'admin' ? 'btn-danger' : 'btn-outline-danger' ?>">
+                                        Admin (<?= $roleCounts['admin'] ?>)
+                                    </a>
+                                    <a href="?role=technician" class="btn <?= $role_filter === 'technician' ? 'btn-danger' : 'btn-outline-danger' ?>">
+                                        Technician (<?= $roleCounts['technician'] ?>)
+                                    </a>
+                                    <a href="?role=department_admin" class="btn <?= $role_filter === 'department_admin' ? 'btn-danger' : 'btn-outline-danger' ?>">
+                                        Department Admin (<?= $roleCounts['department_admin'] + $roleCounts['depadmin'] ?>)
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Users Table -->
                 <div class="card">
-                    <div class="card-header bg-secondary text-white">
-                        <i class="fas fa-users"></i> Registered Users
+                    <div class="card-header bg-danger text-white">
+                        <i class="fas fa-users"></i> Registered Users 
+                        <?php if ($role_filter !== 'all'): ?>
+                            <span class="badge bg-light text-dark ms-2"><?= ucwords(str_replace('_', ' ', $role_filter)) ?> only</span>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body">
                         <table id="adminsTable" class="table table-striped table-bordered">
@@ -139,22 +222,45 @@ $admins = $result->fetch_all(MYSQLI_ASSOC);
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php foreach ($admins as $a): ?>
+                                <?php if (empty($users)): ?>
                                     <tr>
-                                        <td><?= htmlspecialchars($a['full_name']); ?></td>
-                                        <td><?= htmlspecialchars($a['email']); ?></td>
-                                        <td><?= htmlspecialchars($a['role']); ?></td>
-                                        <td><?= htmlspecialchars($a['phone_number']); ?></td>
-                                        <td><?= htmlspecialchars($a['created_at']); ?></td>
-                                        <td>
-                                            <form method="POST" class="d-inline" onsubmit="return confirm('Delete this user?');">
-                                                <input type="hidden" name="action" value="delete">
-                                                <input type="hidden" name="user_id" value="<?= (int)$a['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                                            </form>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            <i class="fas fa-info-circle"></i> No users found.
                                         </td>
                                     </tr>
-                                <?php endforeach; ?>
+                                <?php else: ?>
+                                    <?php foreach ($users as $user): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($user['full_name']); ?></td>
+                                            <td><?= htmlspecialchars($user['email']); ?></td>
+                                            <td>
+                                                <?php
+                                                $roleDisplay = ucwords(str_replace('_', ' ', $user['role']));
+                                                $badgeClass = 'bg-secondary';
+                                                if ($user['role'] === 'admin') $badgeClass = 'bg-danger';
+                                                elseif ($user['role'] === 'technician') $badgeClass = 'bg-primary';
+                                                elseif ($user['role'] === 'department_admin' || $user['role'] === 'depadmin') $badgeClass = 'bg-success';
+                                                ?>
+                                                <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($roleDisplay); ?></span>
+                                            </td>
+                                            <td><?= htmlspecialchars($user['phone_number'] ?? 'N/A'); ?></td>
+                                            <td><?= date('M d, Y', strtotime($user['created_at'])); ?></td>
+                                            <td>
+                                                <?php if ($user['id'] != $_SESSION['user_id']): ?>
+                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this user? This action cannot be undone.');">
+                                                        <input type="hidden" name="action" value="delete">
+                                                        <input type="hidden" name="user_id" value="<?= (int)$user['id']; ?>">
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete User">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <span class="text-muted small">Current User</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </tbody>
                         </table>
                     </div>
@@ -169,44 +275,46 @@ $admins = $result->fetch_all(MYSQLI_ASSOC);
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title"><i class="fas fa-user-plus"></i> Register New Admin</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5 class="modal-title"><i class="fas fa-user-plus"></i> Register New User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <form method="POST">
                     <div class="modal-body">
-                        <?php if ($error): ?>
-                            <div class="alert alert-danger"><?= $error; ?></div>
-                        <?php endif; ?>
-                        <?php if ($success): ?>
-                            <div class="alert alert-success"><?= $success; ?></div>
-                        <?php endif; ?>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label>Full Name</label>
+                                <label class="form-label">Full Name <span class="text-danger">*</span></label>
                                 <input type="text" name="full_name" class="form-control" required>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label>Email</label>
-                                <input type="email" name="email" class="form-control" required>
+                                <label class="form-label">Email <span class="text-danger">*</span></label>
+                                <input type="email" name="email" class="form-control" 
+                                       placeholder="username@g.batstate-u.edu.ph" required>
+                                <small class="form-text text-muted">Must be from @g.batstate-u.edu.ph</small>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label>Phone Number</label>
-                                <input type="text" name="phone_number" class="form-control" required>
+                                <label class="form-label">Phone Number <span class="text-danger">*</span></label>
+                                <input type="text" name="phone_number" class="form-control" 
+                                       placeholder="09123456789" maxlength="11" required>
+                                <small class="form-text text-muted">Must be exactly 11 digits starting with 09</small>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label>Role</label>
-                                <select name="role" class="form-control" required>
+                                <label class="form-label">Role <span class="text-danger">*</span></label>
+                                <select name="role" class="form-select" required>
+                                    <option value="">Select Role...</option>
+                                    <option value="admin">Admin</option>
                                     <option value="technician">Technician</option>
+                                    <option value="department_admin">Department Admin</option>
                                 </select>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label>Password</label>
-                                <input type="password" name="password" class="form-control" required>
+                                <label class="form-label">Password <span class="text-danger">*</span></label>
+                                <input type="password" name="password" class="form-control" required minlength="6">
+                                <small class="form-text text-muted">Must contain uppercase, lowercase, number, and special character</small>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label>Confirm Password</label>
-                                <input type="password" name="confirm_password" class="form-control" required>
+                                <label class="form-label">Confirm Password <span class="text-danger">*</span></label>
+                                <input type="password" name="confirm_password" class="form-control" required minlength="6">
                             </div>
                         </div>
                     </div>
@@ -227,11 +335,56 @@ $admins = $result->fetch_all(MYSQLI_ASSOC);
     <script>
         $(document).ready(function() {
             $('#adminsTable').DataTable({
-                searching: true, // ✅ search only
+                searching: true,
                 paging: true,
                 info: false,
                 ordering: true
             });
+            
+            // Email validation
+            const emailInput = document.querySelector('input[name="email"]');
+            if (emailInput) {
+                emailInput.addEventListener('input', function() {
+                    const email = this.value;
+                    const isValid = email.endsWith('@g.batstate-u.edu.ph');
+                    this.setCustomValidity(isValid ? '' : 'Email must be from @g.batstate-u.edu.ph');
+                });
+            }
+            
+            // Phone number validation
+            const phoneInput = document.querySelector('input[name="phone_number"]');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function() {
+                    const phone = this.value;
+                    const isValid = /^09\d{9}$/.test(phone);
+                    this.setCustomValidity(isValid ? '' : 'Phone number must be exactly 11 digits starting with 09');
+                });
+            }
+            
+            // Password validation
+            const passwordInput = document.querySelector('input[name="password"]');
+            if (passwordInput) {
+                passwordInput.addEventListener('input', function() {
+                    const password = this.value;
+                    const hasUpper = /[A-Z]/.test(password);
+                    const hasLower = /[a-z]/.test(password);
+                    const hasNumber = /\d/.test(password);
+                    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};\':"\\|,.<>\/?]/.test(password);
+                    const isValid = password.length >= 6 && hasUpper && hasLower && hasNumber && hasSpecial;
+                    this.setCustomValidity(isValid ? '' : 'Password must contain at least one uppercase, one lowercase, one number, and one special character');
+                });
+            }
+            
+            // Confirm password validation
+            const confirmPasswordInput = document.querySelector('input[name="confirm_password"]');
+            if (confirmPasswordInput && passwordInput) {
+                confirmPasswordInput.addEventListener('input', function() {
+                    const password = passwordInput.value;
+                    const confirmPassword = this.value;
+                    const isValid = password === confirmPassword;
+                    this.setCustomValidity(isValid ? '' : 'Passwords do not match');
+                });
+            }
         });
     </script>
     <script>

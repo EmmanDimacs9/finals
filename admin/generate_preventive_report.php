@@ -145,6 +145,29 @@ class PDF extends TemplatePDF {
             $this->firstPageHeaderDone = true;
         }
         
+        // Legend and page number section - show on every page before table
+        if ($this->PageNo() > 1 || $this->firstPageHeaderDone) {
+            // Horizontal line
+            $this->Line(10, $this->GetY(), $this->GetPageWidth() - 10, $this->GetY());
+            $this->Ln(3);
+            
+            // Legend - centered
+            $this->SetFont('Arial','I',9);
+            $this->Cell(0, 5, 'Legend: M = Monthly, Q = Quarterly, SA = Semi-Annually', 0, 1, 'C');
+            
+            // Horizontal line
+            $this->Line(10, $this->GetY(), $this->GetPageWidth() - 10, $this->GetY());
+            $this->Ln(2);
+            
+            // Page number - centered (use {nb} placeholder which will be replaced)
+            $this->SetFont('Arial','I',8);
+            $this->Cell(0, 5, 'Page ' . $this->PageNo() . ' of {nb}', 0, 1, 'C');
+            
+            // Horizontal line
+            $this->Line(10, $this->GetY(), $this->GetPageWidth() - 10, $this->GetY());
+            $this->Ln(3);
+        }
+        
         // Table header: Item and months - show on every page
         $this->SetFont('Arial','B',9);
         $this->Cell(40, 7, 'Item', 1, 0, 'C');
@@ -156,10 +179,8 @@ class PDF extends TemplatePDF {
     }
     
     function Footer() {
-        // Page number at bottom
-        $this->SetY(-15);
-        $this->SetFont('Arial','I',8);
-        $this->Cell(0,10,'Page '.$this->PageNo().' of {nb}',0,0,'C');
+        // Footer is handled in Header() with legend section
+        // No additional footer needed
     }
 }
 
@@ -174,6 +195,18 @@ $pdf->AliasNbPages(); // Enable page numbering
 $pdf->SetAutoPageBreak(true, 15); // Auto page break with 15mm margin for footer
 $pdf->AddPage();
 
+// Add legend and page number on first page (after header, before table)
+$pdf->Line(10, $pdf->GetY(), $pdf->GetPageWidth() - 10, $pdf->GetY());
+$pdf->Ln(3);
+$pdf->SetFont('Arial','I',9);
+$pdf->Cell(0, 5, 'Legend: M = Monthly, Q = Quarterly, SA = Semi-Annually', 0, 1, 'C');
+$pdf->Line(10, $pdf->GetY(), $pdf->GetPageWidth() - 10, $pdf->GetY());
+$pdf->Ln(2);
+$pdf->SetFont('Arial','I',8);
+$pdf->Cell(0, 5, 'Page ' . $pdf->PageNo() . ' of {nb}', 0, 1, 'C');
+$pdf->Line(10, $pdf->GetY(), $pdf->GetPageWidth() - 10, $pdf->GetY());
+$pdf->Ln(3);
+
 // --- Table Content ---
 $pdf->SetFont('Arial','',9);
 $rowHeight = 6.5;
@@ -181,7 +214,7 @@ $months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','De
 
 foreach ($items as $item) {
     // Check if we need a new page before adding the row
-    // Account for row height + table header (7mm) that will be added on new page
+    // Account for row height + table header (7mm) + legend section that will be added on new page
     if ($pdf->GetY() + $rowHeight > $pdf->GetPageHeight() - 15) {
         $pdf->AddPage();
     }
@@ -193,9 +226,6 @@ foreach ($items as $item) {
     }
     $pdf->Ln();
 }
-
-$pdf->SetFont('Arial','I',9);
-$pdf->Cell(0,6,'Legend: M = Monthly, Q = Quarterly, SA = Semi-Annually',1,1,'C');
 
 // --- Signatories Section ---
 $pdf->SetFont('Arial','',8);

@@ -78,8 +78,8 @@ requireLogin();
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4">
                 <h2 class="mb-0"><i class="fas fa-calendar-check"></i> Preventive Maintenance Plan</h2>
                 <div class="d-flex gap-2">
-                    <button class="btn btn-secondary"><i class="fas fa-eraser"></i> Clear</button>
-                    <button class="btn btn-danger"><i class="fas fa-save"></i> Save Plan</button>
+                    <button class="btn btn-secondary" id="clearBtn"><i class="fas fa-eraser"></i> Clear</button>
+                    <button class="btn btn-danger" id="savePlanBtn"><i class="fas fa-save"></i> Save Plan</button>
                     <button class="btn btn-outline-danger" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> Export PDF</button>
                 </div>
             </div>
@@ -673,9 +673,8 @@ document.getElementById('confirmBulkAddEquipment').addEventListener('click', fun
     processAssetTags();
 });
 
-// Export PDF functionality
-document.getElementById('exportPdfBtn').addEventListener('click', function() {
-    // Collect form data
+// Helper function to collect form and equipment data
+function collectFormData() {
     const formData = {
         office_college: document.getElementById('office_college').value || '',
         reference_no: document.getElementById('reference_no').value || '',
@@ -703,7 +702,6 @@ document.getElementById('exportPdfBtn').addEventListener('click', function() {
         const firstCell = row.querySelector('td:first-child');
         if (!firstCell || firstCell.colSpan === 13) return; // Skip empty message row
         
-        // Get asset tag from the strong tag or div
         const assetTagElement = firstCell.querySelector('strong');
         if (!assetTagElement) return;
         
@@ -738,7 +736,6 @@ document.getElementById('exportPdfBtn').addEventListener('click', function() {
         const firstCell = row.querySelector('td:first-child');
         if (!firstCell || firstCell.colSpan === 13) return; // Skip empty message row
         
-        // Get asset tag from the strong tag or div
         const assetTagElement = firstCell.querySelector('strong');
         if (!assetTagElement) return;
         
@@ -764,6 +761,101 @@ document.getElementById('exportPdfBtn').addEventListener('click', function() {
         categories.push({ id: 'networkdevices', name: 'Network Devices' });
     }
 
+    return { formData, equipmentData, categories };
+}
+
+// Clear button functionality
+document.getElementById('clearBtn').addEventListener('click', function() {
+    if (!confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
+        return;
+    }
+    
+    // Clear form fields
+    document.getElementById('office_college').value = 'ICT Services';
+    document.getElementById('reference_no').value = 'BatStateU-DOC-AF-04';
+    document.getElementById('effectivity_date').value = '';
+    document.getElementById('revision_no').value = '02';
+    document.getElementById('fy').value = '2025';
+    document.getElementById('prepared_by').value = '';
+    document.getElementById('prepared_date').value = '';
+    document.getElementById('reviewed_by').value = '';
+    document.getElementById('reviewed_date').value = '';
+    document.getElementById('approved_by').value = '';
+    document.getElementById('approved_date').value = '';
+    
+    // Clear equipment tables
+    const desktopTableBody = document.getElementById('desktopTableBody');
+    const networkTableBody = document.getElementById('networkTableBody');
+    
+    desktopTableBody.innerHTML = `
+        <tr id="desktopEmptyRow">
+            <td colspan="13" class="text-center text-muted py-4">
+                <i class="fas fa-info-circle"></i> No equipment added yet. Use the "Add Equipment" button to get started.
+            </td>
+        </tr>
+    `;
+    
+    networkTableBody.innerHTML = `
+        <tr id="networkEmptyRow">
+            <td colspan="13" class="text-center text-muted py-4">
+                <i class="fas fa-info-circle"></i> No equipment added yet. Use the "Add Equipment" button to get started.
+            </td>
+        </tr>
+    `;
+    
+    alert('All data has been cleared.');
+});
+
+// Save Plan button functionality
+document.getElementById('savePlanBtn').addEventListener('click', function() {
+    const { formData, equipmentData, categories } = collectFormData();
+    
+    // Validate that there's at least some equipment
+    if (Object.keys(equipmentData).length === 0) {
+        alert('Please add at least one equipment item before saving the plan.');
+        return;
+    }
+    
+    // Show loading state
+    const saveBtn = this;
+    const originalText = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    
+    // Send data to server
+    fetch('save_preventive_plan.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            formData: formData,
+            equipmentData: equipmentData,
+            categories: categories
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Plan saved successfully!');
+        } else {
+            alert('Failed to save plan: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error saving plan:', error);
+        alert('Error saving plan. Please try again.');
+    })
+    .finally(() => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = originalText;
+    });
+});
+
+// Export PDF functionality
+document.getElementById('exportPdfBtn').addEventListener('click', function() {
+    const { formData, equipmentData, categories } = collectFormData();
+    
     // Create a form and submit it
     const form = document.createElement('form');
     form.method = 'POST';

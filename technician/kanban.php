@@ -14,23 +14,90 @@ $page_title = 'Kanban Dashboard';
 require_once 'header.php';
 ?>
 
-<div class="container-fluid">
+<div class="container-fluid" style="padding: 30px 20px; background-color: #f8f9fa; min-height: 100vh;">
     <div class="row">
         <div class="col-12">
-            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
-                <div>
-                    <h2 class="mb-2" style="color: #212529; font-weight: 700;">
-                        <i class="fas fa-tasks text-danger"></i> ICT Service Request & Task Board
-                    </h2>
-                    <p class="text-muted mb-0">
-                        <i class="fas fa-info-circle"></i> Manage service requests from departments, tasks, and maintenance records
+            <!-- Header Section -->
+            <div class="mb-5" style="max-width: 1200px; margin: 0 auto;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="me-3" style="width: 48px; height: 48px; background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);">
+                        <i class="fas fa-tasks text-white" style="font-size: 24px;"></i>
+                    </div>
+                    <div>
+                        <h1 class="mb-0" style="color: #212529; font-weight: 700; font-size: 2rem; letter-spacing: -0.5px;">
+                            Task Management & Service Board
+                        </h1>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center mb-4" style="margin-left: 60px;">
+                    <div class="me-2" style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="fas fa-info-circle text-white" style="font-size: 10px;"></i>
+                    </div>
+                    <p class="text-muted mb-0" style="font-size: 0.95rem; color: #6c757d;">
+                        Manage service requests from departments, tasks, and maintenance records
                     </p>
                 </div>
-                <div class="ms-auto" style="min-width: 220px;">
-                    <label for="requestTypeFilter" class="form-label text-uppercase text-muted small mb-1">
+
+                <div id="alert-container"></div>
+
+                <!-- Statistics Cards Section -->
+                <div class="row g-4 mb-4">
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="stat-card-modern stat-card-blue-modern clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
+                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
+                                <i class="fas fa-desktop"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 class="stat-number" id="kanban-stat-equipment">0</h3>
+                                <p class="stat-label">Equipment Assigned</p>
+                            </div>
+                            <i class="fas fa-chevron-right stat-arrow"></i>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="stat-card-modern stat-card-blue-modern clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
+                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);">
+                                <i class="fas fa-clipboard-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 class="stat-number" id="kanban-stat-tasks">0</h3>
+                                <p class="stat-label">Tasks Assigned</p>
+                            </div>
+                            <i class="fas fa-chevron-right stat-arrow"></i>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="stat-card-modern stat-card-yellow-modern clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
+                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);">
+                                <i class="fas fa-tools"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 class="stat-number" id="kanban-stat-maintenance">0</h3>
+                                <p class="stat-label">Maintenance Records</p>
+                            </div>
+                            <i class="fas fa-chevron-right stat-arrow"></i>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-6 col-lg-3">
+                        <div class="stat-card-modern stat-card-green-modern clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
+                            <div class="stat-icon-wrapper" style="background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);">
+                                <i class="fas fa-calendar"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3 class="stat-number" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
+                                <p class="stat-label">Current Month</p>
+                            </div>
+                            <i class="fas fa-chevron-right stat-arrow"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filter Section -->
+                <div class="mb-4" style="max-width: 300px;">
+                    <label for="requestTypeFilter" class="form-label text-uppercase text-muted small mb-2" style="font-weight: 600; letter-spacing: 0.5px;">
                         Filter by request type
                     </label>
-                    <select id="requestTypeFilter" class="form-select form-select-sm">
+                    <select id="requestTypeFilter" class="form-select form-select-lg" style="border-radius: 8px; border: 1px solid #dee2e6;">
                         <option value="all" selected>Show all items</option>
                         <option value="service_request">Service Requests</option>
                         <option value="system_request">System Requests</option>
@@ -38,54 +105,8 @@ require_once 'header.php';
                 </div>
             </div>
 
-            <div id="alert-container"></div>
-
-            <!-- Statistics Section -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card shadow-sm mb-3">
-                        <div class="card-header bg-white">
-                            <h5 class="mb-0">
-                                <i class="fas fa-chart-pie text-danger"></i> My Statistics
-                            </h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row text-center g-3">
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('equipment')" title="Click to view equipment">
-                                        <i class="fas fa-desktop fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-equipment">0</h3>
-                                        <small class="text-muted">Equipment Assigned</small>
-                                    </div>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-blue clickable-stat" onclick="filterByType('task')" title="Click to filter tasks">
-                                        <i class="fas fa-clipboard-check fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-tasks">0</h3>
-                                        <small class="text-muted">Tasks Assigned</small>
-                                    </div>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-yellow clickable-stat" onclick="filterByType('maintenance')" title="Click to filter maintenance">
-                                        <i class="fas fa-tools fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-maintenance">0</h3>
-                                        <small class="text-muted">Maintenance Records</small>
-                                    </div>
-                                </div>
-                                <div class="col-6 col-md-3">
-                                    <div class="stat-card stat-card-green clickable-stat" onclick="filterByMonth()" title="Click to filter current month items">
-                                        <i class="fas fa-calendar fa-3x mb-3"></i>
-                                        <h3 class="mb-2" id="kanban-stat-month"><?php echo date('M Y'); ?></h3>
-                                        <small class="text-muted">Current Month</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="kanban-board-container">
+            <!-- Kanban Board Section -->
+            <div class="kanban-board-container" style="max-width: 1200px; margin: 0 auto;">
                 <!-- Pending -->
                 <div class="kanban-column-wrapper">
                     <div class="card kanban-column">
@@ -2749,7 +2770,175 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     max-width: 400px;
 }
 
-/* Statistics Card Styling */
+/* Modern Statistics Card Styling */
+.stat-card-modern {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    cursor: pointer;
+}
+
+.stat-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border-color: #dee2e6;
+}
+
+.stat-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-icon-wrapper i {
+    color: white;
+    font-size: 28px;
+}
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-number {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+    font-weight: 500;
+}
+
+.stat-arrow {
+    color: #6c757d;
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.stat-card-modern:hover .stat-arrow {
+    opacity: 1;
+    transform: translateX(4px);
+    color: #212529;
+}
+
+.stat-card-blue-modern:hover {
+    border-color: #007bff;
+}
+
+.stat-card-yellow-modern:hover {
+    border-color: #ffc107;
+}
+
+.stat-card-green-modern:hover {
+    border-color: #28a745;
+}
+
+/* Legacy Statistics Card Styling (for backward compatibility) */
+/* Modern Statistics Card Styling */
+.stat-card-modern {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 16px;
+    padding: 24px;
+    transition: all 0.3s ease;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    cursor: pointer;
+}
+
+.stat-card-modern:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border-color: #dee2e6;
+}
+
+.stat-icon-wrapper {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.stat-icon-wrapper i {
+    color: white;
+    font-size: 28px;
+}
+
+.stat-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.stat-number {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #212529;
+    margin: 0 0 4px 0;
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin: 0;
+    font-weight: 500;
+}
+
+.stat-arrow {
+    color: #6c757d;
+    font-size: 1rem;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.stat-card-modern:hover .stat-arrow {
+    opacity: 1;
+    transform: translateX(4px);
+    color: #212529;
+}
+
+.stat-card-blue-modern:hover {
+    border-color: #007bff;
+}
+
+.stat-card-yellow-modern:hover {
+    border-color: #ffc107;
+}
+
+.stat-card-green-modern:hover {
+    border-color: #28a745;
+}
+
 .stat-card {
     background: white;
     border: 1px solid #e9ecef;

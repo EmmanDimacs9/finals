@@ -11,6 +11,27 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Function to get the correct path to landing.php based on current directory
+function getLandingPagePath() {
+    // Use PHP_SELF which gives the script path relative to document root
+    $script_path = $_SERVER['PHP_SELF'];
+    $script_path = str_replace('\\', '/', $script_path);
+    
+    // Remove leading slash and get directory parts
+    $script_path = ltrim($script_path, '/');
+    $parts = explode('/', $script_path);
+    
+    // Count directory depth (subtract 1 for the filename itself)
+    $depth = count($parts) - 1;
+    
+    // Build path to landing.php
+    if ($depth > 0) {
+        return str_repeat('../', $depth) . 'landing.php';
+    } else {
+        return 'landing.php';
+    }
+}
+
 // Set session timeout (30 minutes)
 $session_timeout = 1800; // 30 minutes in seconds
 
@@ -20,6 +41,11 @@ if (isset($_SESSION['last_activity']) && (time() - $_SESSION['last_activity'] > 
     session_unset();
     session_destroy();
     session_start();
+    
+    // Redirect to landing page when session expires
+    $landing_path = getLandingPagePath();
+    header('Location: ' . $landing_path);
+    exit();
 }
 
 // Update last activity time
@@ -43,7 +69,8 @@ function isTechnician() {
 // Function to require login
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: landing.php');
+        $landing_path = getLandingPagePath();
+        header('Location: ' . $landing_path);
         exit();
     }
 }
@@ -52,7 +79,9 @@ function requireLogin() {
 function requireAdmin() {
     requireLogin();
     if (!isAdmin()) {
-        header('Location: admin/dashboard.php');
+        // Redirect non-admins to landing page
+        $landing_path = getLandingPagePath();
+        header('Location: ' . $landing_path);
         exit();
     }
 }

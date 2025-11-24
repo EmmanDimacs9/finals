@@ -432,7 +432,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    showAlert('Maintenance support level assigned and deadline set!', 'success');
+                    showAlert('Support level assigned and timer started!', 'success');
                     bootstrap.Modal.getInstance(document.getElementById('maintenanceAssignModal')).hide();
                     loadAllItems();
                 } else {
@@ -456,13 +456,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // Get current status to preserve it (don't auto-change status)
+        const currentStatus = document.getElementById('serviceRequestId').getAttribute('data-current-status') || 'pending';
+        const statusMap = {
+            'pending': 'Pending',
+            'in_progress': 'In Progress',
+            'completed': 'Completed'
+        };
+        const dbStatus = statusMap[currentStatus] || 'Pending';
+        
         fetch('api/task_webhook.php', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
                 action: 'update_service_request',
                 request_id: requestId,
-                new_status: 'In Progress',
+                new_status: dbStatus,
                 support_level: supportLevel,
                 processing_time: processingTime,
                 accomplishment: accomplishment || null
@@ -471,7 +480,7 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(res => res.json())
         .then(data => {
             if (data.success) {
-                showAlert('Support level and processing time assigned! You can now proceed to complete the request.', 'success');
+                showAlert('Support level assigned and timer started!', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('updateServiceRequestModal')).hide();
                 loadAllItems();
             } else {
@@ -562,7 +571,8 @@ function applyRequestFilter() {
 
     cards.forEach(card => {
         const cardType = card.getAttribute('data-card-type') || 'task';
-        if (selectedType === 'all' || cardType === selectedType) {
+        // Always show tasks regardless of filter (filter only applies to service/system requests)
+        if (cardType === 'task' || selectedType === 'all' || cardType === selectedType) {
             card.classList.remove('d-none');
         } else {
             card.classList.add('d-none');
@@ -581,30 +591,53 @@ function loadTasksByStatus(status) {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
+        if (data.success && data.data && Array.isArray(data.data)) {
+            if (status === 'completed' && data.data.length > 0) {
+                console.log(`Loaded ${data.data.length} completed task(s)`);
+            }
             renderTasks(status, data.data);
+        } else {
+            if (status === 'completed') {
+                console.log(`No completed tasks found for user ${currentUserId}`);
+            }
+            // Clear the container if no tasks
+            const container = document.getElementById(`${status.replace('_','-')}-tasks`);
+            if (container) {
+                container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
+            }
         }
+        return Promise.resolve();
+    })
+    .catch(error => {
+        console.error(`Error loading tasks for status ${status}:`, error);
         return Promise.resolve();
     });
 }
 
 function renderTasks(status, tasks) {
     const container = document.getElementById(`${status.replace('_','-')}-tasks`);
-    // Remove only task cards
+    if (!container) {
+        console.error(`Container not found for status: ${status}`);
+        return;
+    }
+    // Remove only task cards (not maintenance or service request cards)
     container.querySelectorAll('[data-task-id]').forEach(el => el.remove());
     // Add new task cards
-    tasks.forEach(task => {
-        const existing = container.querySelector(`[data-task-id="${task.id}"]`);
-        if (!existing) {
-            container.insertAdjacentHTML('beforeend', createTaskElement(task));
-        }
-    });
+    if (tasks && tasks.length > 0) {
+        tasks.forEach(task => {
+            const existing = container.querySelector(`[data-task-id="${task.id}"]`);
+            if (!existing) {
+                container.insertAdjacentHTML('beforeend', createTaskElement(task));
+            }
+        });
+    }
     // Count will be updated by loadAllItems after all items are loaded
 }
 
 function createTaskElement(task) {
-    const dueDate = new Date(task.due_date).toLocaleDateString();
+    const dueDate = task.due_date ? new Date(task.due_date).toLocaleDateString() : 'N/A';
     const createdDate = new Date(task.created_at).toLocaleDateString();
+    const completedDate = task.status === 'completed' && task.updated_at ? new Date(task.updated_at).toLocaleDateString() : null;
 
     return `
     <div class="task-card ${task.status === 'completed' ? 'completed' : ''}" data-task-id="${task.id}" data-card-type="task">
@@ -616,17 +649,23 @@ function createTaskElement(task) {
         <div class="task-meta">
             <small class="text-muted">
                 <i class="fas fa-user"></i> ${escapeHtml(task.assigned_to_name)}<br>
-                <i class="fas fa-calendar"></i> Due: ${dueDate}<br>
+                ${task.status === 'completed' && completedDate 
+                    ? `<i class="fas fa-check-circle"></i> Completed: ${completedDate}<br>`
+                    : `<i class="fas fa-calendar"></i> Due: ${dueDate}<br>`}
                 <i class="fas fa-clock"></i> Created: ${createdDate}
             </small>
         </div>
-        ${task.status === 'completed' && task.remarks ? `<div><strong>Remarks:</strong> ${escapeHtml(task.remarks)}</div>` : ''}
-        ${task.status !== 'completed' ? `
+        ${task.status === 'completed' ? `
+            <div class="task-actions mt-2">
+                <button class="btn btn-outline-danger btn-sm w-100" onclick="deleteTask(${task.id})">
+                    <i class="fas fa-trash"></i> Remove
+                </button>
+            </div>` : `
             <div class="task-actions">
                 ${task.status === 'pending'
                     ? `<button class="btn btn-sm btn-success" onclick="updateTaskStatus(${task.id}, 'in_progress')">Start</button>`
                     : `<button class="btn btn-sm btn-success" onclick="openCompleteModal(${task.id}, 'task')">Complete</button>`}
-            </div>` : ''}
+            </div>`}
     </div>`;
 }
 
@@ -704,10 +743,10 @@ function createMaintenanceElement(record) {
         </div>
 
         <div class="task-actions mt-2">
+            ${record.status !== 'completed' ? `
             <button class="btn btn-sm btn-primary w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
                 <i class="fas fa-eye"></i> Observe Equipment
             </button>
-            ${record.status !== 'completed' ? `
             <button class="btn btn-sm btn-warning w-100 mb-2" onclick="openMaintenanceAssignModal(${record.id})">
                 <i class="fas fa-layer-group"></i> Assign Support Level
             </button>
@@ -1439,6 +1478,10 @@ function openServiceRequestModal(requestId) {
                 const supportLevelSelect = document.getElementById('serviceRequestSupportLevel');
                 const processingTimeInput = document.getElementById('serviceRequestProcessingTime');
                 
+                // Store current status to preserve it
+                const currentStatus = request.status === 'Pending' ? 'pending' : (request.status === 'In Progress' ? 'in_progress' : 'completed');
+                document.getElementById('serviceRequestId').setAttribute('data-current-status', currentStatus);
+                
                 if (request.support_level) {
                     supportLevelSelect.value = request.support_level;
                     // Auto-populate processing time if support level is set
@@ -1619,6 +1662,30 @@ function viewFeedbackPreview(requestId) {
     .catch(error => {
         modalBody.innerHTML = `<div class="alert alert-danger"><i class="fas fa-times-circle"></i> Error loading feedback: ${escapeHtml(error.message)}</div>`;
     });
+}
+
+function deleteTask(taskId) {
+    if (!confirm('Remove this completed task from the board? This cannot be undone.')) {
+        return;
+    }
+    fetch('api/task_webhook.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            action: 'delete_task',
+            task_id: taskId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            showAlert('Task removed.', 'success');
+            loadAllItems();
+        } else {
+            showAlert('Failed: ' + data.message, 'danger');
+        }
+    })
+    .catch(() => showAlert('Error removing task', 'danger'));
 }
 
 function deleteServiceRequest(requestId) {

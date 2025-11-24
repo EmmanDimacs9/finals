@@ -61,6 +61,3 @@ echo json_encode([
 ?>
 
 
-
-
-

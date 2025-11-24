@@ -8,7 +8,11 @@ if (!isLoggedIn() || !isTechnician()) {
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+// Inventory has been moved to admin section
+// Redirect to technician dashboard with message
+$_SESSION['info_message'] = 'Inventory management has been moved to the Admin section.';
+header('Location: indet.php');
+exit();
 
 // Search and filter setup
 $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';

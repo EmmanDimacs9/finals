@@ -617,10 +617,6 @@ if (!empty($_SESSION['profile_image'])) {
                             <i class="fas fa-tasks"></i>
                             <span>My Tasks</span>
                         </a>
-                        <a href="inventory.php" class="quick-action-item">
-                            <i class="fas fa-boxes"></i>
-                            <span>Inventory</span>
-                        </a>
                         <a href="qr.php" class="quick-action-item">
                             <i class="fas fa-qrcode"></i>
                             <span>QR Scanner</span>

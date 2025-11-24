@@ -36,14 +36,6 @@ require_once 'header.php';
                         </div>
                         <div class="card-body">
                             <div class="list-group">
-                                <button class="list-group-item list-group-item-action" onclick="showReportModal('inventory')">
-                                    <i class="fas fa-list text-primary me-2"></i>
-                                    <div class="d-inline-block text-start">
-                                        <strong>Complete Inventory Report</strong><br>
-                                        <small>Generate a comprehensive list of all equipment with detailed information.</small>
-                                    </div>
-                                </button>
-
                                 <button class="list-group-item list-group-item-action" onclick="showReportModal('department')">
                                     <i class="fas fa-building text-info me-2"></i>
                                     <div class="d-inline-block text-start">
@@ -95,7 +87,6 @@ require_once 'header.php';
 <script>
 function showReportModal(reportType) {
     const reportMap = {
-        'inventory': 'complete_inventory.php',
         'department': 'department_report.php',
         'maintenance': 'maintenance_report.php',
         'incomplete': 'incomplete_report.php',

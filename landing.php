@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     logAdminAction($user['id'], $user['full_name'], "Login", "Admin logged in");
                     header('Location: admin/dashboard.php');
                 } elseif($user['role'] == 'technician'){
-                    header('Location: technician/indet.php');
+                    header('Location: technician/kanban.php');
                 } elseif($user['role'] == 'department_admin'){ 
                     header('Location: department/depdashboard.php');
                 }

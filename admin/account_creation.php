@@ -6,6 +6,43 @@ requireLogin();
 $message = '';
 $error = '';
 
+// Fetch departments from departments table and equipment tables
+$departments = [];
+// First, get from departments table
+$deptQuery = "SELECT id, name FROM departments ORDER BY name ASC";
+$deptResult = $conn->query($deptQuery);
+if ($deptResult) {
+    while ($row = $deptResult->fetch_assoc()) {
+        $departments[$row['id']] = $row['name'];
+    }
+}
+
+// Also get unique departments from equipment tables
+$equipmentDeptQuery = "
+    SELECT DISTINCT department_office AS dept FROM desktop WHERE department_office IS NOT NULL AND department_office != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM laptops WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM printers WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM accesspoint WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM switch WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM telephone WHERE department IS NOT NULL AND department != ''
+    ORDER BY dept ASC
+";
+$equipmentDeptResult = $conn->query($equipmentDeptQuery);
+if ($equipmentDeptResult) {
+    while ($row = $equipmentDeptResult->fetch_assoc()) {
+        $deptName = $row['dept'];
+        // Add to departments array if not already present
+        if (!in_array($deptName, $departments)) {
+            $departments[] = $deptName;
+        }
+    }
+}
+
 // Handle Add Account form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_account') {
     $full_name = trim($_POST['full_name'] ?? '');
@@ -14,10 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $role = $_POST['role'] ?? '';
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
+    $department = trim($_POST['department'] ?? '');
     
     // Validation
     if (empty($full_name) || empty($email) || empty($role) || empty($password)) {
         $error = "All required fields must be filled.";
+    } elseif ($role === 'department_admin' && empty($department)) {
+        $error = "Please select a department/office for the Department Admin role.";
     } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = "Please enter a valid email address.";
     } elseif ($password !== $confirm_password) {
@@ -39,15 +79,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             // Hash password and insert new user
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
             
-            $insertStmt = $conn->prepare("INSERT INTO users (full_name, email, phone_number, role, password, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-            $insertStmt->bind_param("sssss", $full_name, $email, $phone_number, $role, $hashed_password);
+            // Check if users table has department column, if not we'll add it
+            $checkColumn = $conn->query("SHOW COLUMNS FROM users LIKE 'department'");
+            if ($checkColumn->num_rows == 0) {
+                // Add department column if it doesn't exist
+                $conn->query("ALTER TABLE users ADD COLUMN department VARCHAR(255) DEFAULT NULL AFTER role");
+            }
+            
+            // Insert user with department if it's department_admin
+            if ($role === 'department_admin' && !empty($department)) {
+                $insertStmt = $conn->prepare("INSERT INTO users (full_name, email, phone_number, role, department, password, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())");
+                $insertStmt->bind_param("ssssss", $full_name, $email, $phone_number, $role, $department, $hashed_password);
+            } else {
+                $insertStmt = $conn->prepare("INSERT INTO users (full_name, email, phone_number, role, password, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
+                $insertStmt->bind_param("sssss", $full_name, $email, $phone_number, $role, $hashed_password);
+            }
             
             if ($insertStmt->execute()) {
                 $message = "Account created successfully for " . htmlspecialchars($full_name) . "!";
                 
                 // Log the action
                 if (function_exists('addLog')) {
-                    addLog($conn, $_SESSION['user_id'], "Created new user account: $email ($role)");
+                    $logMsg = "Created new user account: $email ($role)";
+                    if ($role === 'department_admin' && !empty($department)) {
+                        $logMsg .= " - Department: $department";
+                    }
+                    addLog($conn, $_SESSION['user_id'], $logMsg);
                 }
             } else {
                 $error = "Failed to create account: " . $conn->error;
@@ -267,6 +324,59 @@ if ($roleCountsResult) {
                                     <small><strong>Department Admin:</strong> Can manage department equipment and submit requests</small>
                                 </div>
                             </div>
+                            <div class="col-md-6" id="departmentField" style="display: none;">
+                                <label for="department" class="form-label">Department/Office <span class="text-danger">*</span></label>
+                                <select class="form-select" id="department" name="department">
+                                    <option value="">Select Department/Office</option>
+                                    <?php 
+                                    // Collect all departments for dropdown
+                                    $allDepartments = [];
+                                    
+                                    // Get departments from departments table
+                                    $deptTableQuery = "SELECT id, name FROM departments ORDER BY name ASC";
+                                    $deptTableResult = $conn->query($deptTableQuery);
+                                    if ($deptTableResult && $deptTableResult->num_rows > 0) {
+                                        while ($deptRow = $deptTableResult->fetch_assoc()) {
+                                            $allDepartments[] = $deptRow['name'];
+                                        }
+                                    }
+                                    
+                                    // Also get departments from equipment tables
+                                    $equipDeptQuery = "
+                                        SELECT DISTINCT department_office AS dept FROM desktop WHERE department_office IS NOT NULL AND department_office != ''
+                                        UNION
+                                        SELECT DISTINCT department AS dept FROM laptops WHERE department IS NOT NULL AND department != ''
+                                        UNION
+                                        SELECT DISTINCT department AS dept FROM printers WHERE department IS NOT NULL AND department != ''
+                                        UNION
+                                        SELECT DISTINCT department AS dept FROM accesspoint WHERE department IS NOT NULL AND department != ''
+                                        UNION
+                                        SELECT DISTINCT department AS dept FROM switch WHERE department IS NOT NULL AND department != ''
+                                        UNION
+                                        SELECT DISTINCT department AS dept FROM telephone WHERE department IS NOT NULL AND department != ''
+                                        ORDER BY dept ASC
+                                    ";
+                                    $equipDeptResult = $conn->query($equipDeptQuery);
+                                    if ($equipDeptResult) {
+                                        while ($equipRow = $equipDeptResult->fetch_assoc()) {
+                                            $deptName = $equipRow['dept'];
+                                            if (!in_array($deptName, $allDepartments)) {
+                                                $allDepartments[] = $deptName;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Display all departments
+                                    sort($allDepartments);
+                                    foreach ($allDepartments as $deptName) {
+                                        echo '<option value="' . htmlspecialchars($deptName) . '">' . htmlspecialchars($deptName) . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <div class="form-text">
+                                    <small>Select the department/office this admin will manage</small>
+                                </div>
+                            </div>
                             <div class="col-md-6">
                                 <label for="password" class="form-label">Password <span class="text-danger">*</span></label>
                                 <input type="password" class="form-control" id="password" name="password" required minlength="8">
@@ -320,6 +430,22 @@ if ($roleCountsResult) {
                 }
             });
 
+            // Show/hide department field based on role selection
+            $('#role').on('change', function() {
+                const selectedRole = $(this).val();
+                const departmentField = $('#departmentField');
+                const departmentSelect = $('#department');
+                
+                if (selectedRole === 'department_admin') {
+                    departmentField.show();
+                    departmentSelect.prop('required', true);
+                } else {
+                    departmentField.hide();
+                    departmentSelect.prop('required', false);
+                    departmentSelect.val('');
+                }
+            });
+
             // Password strength validation function
             function validatePassword(password) {
                 const requirements = {
@@ -366,7 +492,16 @@ if ($roleCountsResult) {
             $('#addAccountForm').on('submit', function(e) {
                 const password = $('#password').val();
                 const confirmPassword = $('#confirm_password').val();
+                const role = $('#role').val();
+                const department = $('#department').val();
                 const requirements = validatePassword(password);
+                
+                // Check if department is required
+                if (role === 'department_admin' && !department) {
+                    e.preventDefault();
+                    alert('Please select a department/office for the Department Admin role!');
+                    return false;
+                }
                 
                 if (password !== confirmPassword) {
                     e.preventDefault();
@@ -406,6 +541,8 @@ if ($roleCountsResult) {
                 $('#confirm_password').removeClass('is-invalid is-valid');
                 $('#password').removeClass('is-invalid is-valid');
                 $('#password-strength').html('');
+                $('#departmentField').hide();
+                $('#department').prop('required', false).val('');
             });
         });
     </script>

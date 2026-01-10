@@ -275,26 +275,6 @@ if ($techniciansResult) {
                                 <?php endforeach; ?>
                             </select>
                         </div>
-
-                        <div class="section-title mt-4">Technician / Accomplishment Details (optional)</div>
-                        <div class="row">
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Actual Response Time</label>
-                                <input type="text" name="accomp_response" class="form-control" placeholder="e.g., Arrived within 2 hours">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label class="form-label">Service Time</label>
-                                <input type="text" name="accomp_service" class="form-control" placeholder="e.g., 1:30 PM - 2:15 PM">
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Accomplishment Summary</label>
-                            <textarea name="accomplishment" class="form-control" rows="3" placeholder="Describe the work completed or observations made (optional)"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Technician Remarks</label>
-                            <textarea name="remarks" class="form-control" rows="3" placeholder="Additional notes, recommendations, or follow-up actions"></textarea>
-                        </div>
                     </form>
                 </div>
             </div>

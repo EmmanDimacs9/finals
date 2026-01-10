@@ -5,7 +5,36 @@ require_once '../includes/logs.php';
 
 requireLogin();
 
-// Fetch all unique offices/departments from equipment tables
+// Get current logged-in department admin's department
+$current_user_id = $_SESSION['user_id'] ?? 0;
+$user_department = '';
+
+if ($current_user_id > 0) {
+    $userStmt = $conn->prepare("SELECT department FROM users WHERE id = ? AND role = 'department_admin'");
+    $userStmt->bind_param("i", $current_user_id);
+    $userStmt->execute();
+    $userResult = $userStmt->get_result();
+    if ($userRow = $userResult->fetch_assoc()) {
+        $user_department = $userRow['department'] ?? '';
+    }
+    $userStmt->close();
+}
+
+// Fetch all unique offices/departments from departments table and equipment tables
+$allDepartments = [];
+
+// Get from departments table
+$deptTableQuery = "SELECT name FROM departments ORDER BY name ASC";
+$deptTableResult = $conn->query($deptTableQuery);
+if ($deptTableResult) {
+    while ($row = $deptTableResult->fetch_assoc()) {
+        if (!in_array($row['name'], $allDepartments)) {
+            $allDepartments[] = $row['name'];
+        }
+    }
+}
+
+// Get from equipment tables
 $departmentsQuery = "
     SELECT DISTINCT department_office AS dept FROM desktop WHERE department_office IS NOT NULL AND department_office != ''
     UNION
@@ -21,10 +50,20 @@ $departmentsQuery = "
     ORDER BY dept ASC
 ";
 $departmentsResult = $conn->query($departmentsQuery);
-$departments = [];
-while ($row = $departmentsResult->fetch_assoc()) {
-    $departments[] = $row['dept'];
+if ($departmentsResult) {
+    while ($row = $departmentsResult->fetch_assoc()) {
+        if (!in_array($row['dept'], $allDepartments)) {
+            $allDepartments[] = $row['dept'];
+        }
+    }
 }
+
+// Add user's department if not already in list
+if (!empty($user_department) && !in_array($user_department, $allDepartments)) {
+    $allDepartments[] = $user_department;
+}
+
+sort($allDepartments);
 
 // Fetch all unique locations from equipment tables
 $locationsQuery = "
@@ -196,8 +235,10 @@ if ($techniciansResult) {
                                 <label class="form-label">Office/Department</label>
                                 <select name="office" class="form-select" required>
                                     <option value="">Select Office/Department</option>
-                                    <?php foreach ($departments as $dept): ?>
-                                        <option value="<?= htmlspecialchars($dept) ?>"><?= htmlspecialchars($dept) ?></option>
+                                    <?php foreach ($allDepartments as $dept): ?>
+                                        <option value="<?= htmlspecialchars($dept) ?>" <?= ($dept === $user_department) ? 'selected' : '' ?>>
+                                            <?= htmlspecialchars($dept) ?>
+                                        </option>
                                     <?php endforeach; ?>
                                 </select>
                             </div>

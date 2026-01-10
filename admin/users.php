@@ -14,6 +14,45 @@ $success = isset($_GET['success']) ? $_GET['success'] : '';
 // Get role filter
 $role_filter = isset($_GET['role']) ? $_GET['role'] : 'all';
 
+// Fetch departments from departments table and equipment tables
+$allDepartments = [];
+
+// Get departments from departments table
+$deptTableQuery = "SELECT id, name FROM departments ORDER BY name ASC";
+$deptTableResult = $conn->query($deptTableQuery);
+if ($deptTableResult && $deptTableResult->num_rows > 0) {
+    while ($deptRow = $deptTableResult->fetch_assoc()) {
+        $allDepartments[] = $deptRow['name'];
+    }
+}
+
+// Also get departments from equipment tables
+$equipDeptQuery = "
+    SELECT DISTINCT department_office AS dept FROM desktop WHERE department_office IS NOT NULL AND department_office != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM laptops WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM printers WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM accesspoint WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM switch WHERE department IS NOT NULL AND department != ''
+    UNION
+    SELECT DISTINCT department AS dept FROM telephone WHERE department IS NOT NULL AND department != ''
+    ORDER BY dept ASC
+";
+$equipDeptResult = $conn->query($equipDeptQuery);
+if ($equipDeptResult) {
+    while ($equipRow = $equipDeptResult->fetch_assoc()) {
+        $deptName = $equipRow['dept'];
+        if (!in_array($deptName, $allDepartments)) {
+            $allDepartments[] = $deptName;
+        }
+    }
+}
+
+sort($allDepartments);
+
 // Handle registration
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['user_id'])) {
@@ -47,9 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $phone_number = trim($_POST['phone_number']);
         $password = $_POST['password'];
         $confirm_password = $_POST['confirm_password'];
+        $department = trim($_POST['department'] ?? '');
 
         if (empty($full_name) || empty($email) || empty($phone_number) || empty($password)) {
             $error = 'Please fill in all fields';
+        } elseif ($role === 'department_admin' && empty($department)) {
+            $error = 'Please select a department/office for the Department Admin role';
         } elseif (!preg_match('/^09\d{9}$/', $phone_number)) {
             $error = 'Phone number must be exactly 11 digits starting with 09';
         } elseif ($password !== $confirm_password) {
@@ -67,14 +109,32 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if ($result->num_rows > 0) {
                 $error = 'Email address already exists';
             } else {
+                // Check if users table has department column, if not we'll add it
+                $checkColumn = $conn->query("SHOW COLUMNS FROM users LIKE 'department'");
+                if ($checkColumn->num_rows == 0) {
+                    // Add department column if it doesn't exist
+                    $conn->query("ALTER TABLE users ADD COLUMN department VARCHAR(255) DEFAULT NULL AFTER role");
+                }
+                
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("INSERT INTO users (full_name, email, role, phone_number, password) VALUES (?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssss", $full_name, $email, $role, $phone_number, $hashed_password);
+                
+                // Insert user with department if it's department_admin
+                if ($role === 'department_admin' && !empty($department)) {
+                    $stmt = $conn->prepare("INSERT INTO users (full_name, email, role, department, phone_number, password) VALUES (?, ?, ?, ?, ?, ?)");
+                    $stmt->bind_param("ssssss", $full_name, $email, $role, $department, $phone_number, $hashed_password);
+                } else {
+                    $stmt = $conn->prepare("INSERT INTO users (full_name, email, role, phone_number, password) VALUES (?, ?, ?, ?, ?)");
+                    $stmt->bind_param("sssss", $full_name, $email, $role, $phone_number, $hashed_password);
+                }
 
                 if ($stmt->execute()) {
                     include '../logger.php';
                     $roleDisplay = ucwords(str_replace('_', ' ', $role));
-                    logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Add User', 'Added ' . $roleDisplay . ': ' . $email);
+                    $logMessage = 'Added ' . $roleDisplay . ': ' . $email;
+                    if ($role === 'department_admin' && !empty($department)) {
+                        $logMessage .= ' - Department: ' . $department;
+                    }
+                    logAdminAction($_SESSION['user_id'], $_SESSION['user_name'], 'Add User', $logMessage);
                     header('Location: users.php?success=' . urlencode($roleDisplay . ' account registered successfully!'));
                     exit();
                 } else {
@@ -86,12 +146,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 }
 
+// Ensure department column exists (for backward compatibility)
+$checkColumn = $conn->query("SHOW COLUMNS FROM users LIKE 'department'");
+if ($checkColumn->num_rows == 0) {
+    $conn->query("ALTER TABLE users ADD COLUMN department VARCHAR(255) DEFAULT NULL AFTER role");
+}
+
 // Build query with role filter
 if ($role_filter === 'all') {
-    $query = "SELECT id, full_name, email, role, phone_number, created_at FROM users ORDER BY created_at DESC";
+    $query = "SELECT id, full_name, email, role, department, phone_number, created_at FROM users ORDER BY created_at DESC";
     $stmt = $conn->prepare($query);
 } else {
-    $query = "SELECT id, full_name, email, role, phone_number, created_at FROM users WHERE role = ? ORDER BY created_at DESC";
+    $query = "SELECT id, full_name, email, role, department, phone_number, created_at FROM users WHERE role = ? ORDER BY created_at DESC";
     $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $role_filter);
 }
@@ -216,6 +282,7 @@ $totalUsers = array_sum($roleCounts);
                                     <th>Full Name</th>
                                     <th>Email</th>
                                     <th>Role</th>
+                                    <th>Department</th>
                                     <th>Phone</th>
                                     <th>Created At</th>
                                     <th>Action</th>
@@ -224,7 +291,7 @@ $totalUsers = array_sum($roleCounts);
                             <tbody>
                                 <?php if (empty($users)): ?>
                                     <tr>
-                                        <td colspan="6" class="text-center text-muted py-4">
+                                        <td colspan="7" class="text-center text-muted py-4">
                                             <i class="fas fa-info-circle"></i> No users found.
                                         </td>
                                     </tr>
@@ -243,6 +310,7 @@ $totalUsers = array_sum($roleCounts);
                                                 ?>
                                                 <span class="badge <?= $badgeClass ?>"><?= htmlspecialchars($roleDisplay); ?></span>
                                             </td>
+                                            <td><?= htmlspecialchars($user['department'] ?? 'N/A'); ?></td>
                                             <td><?= htmlspecialchars($user['phone_number'] ?? 'N/A'); ?></td>
                                             <td><?= date('M d, Y', strtotime($user['created_at'])); ?></td>
                                             <td>
@@ -300,12 +368,24 @@ $totalUsers = array_sum($roleCounts);
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Role <span class="text-danger">*</span></label>
-                                <select name="role" class="form-select" required>
+                                <select name="role" id="roleSelect" class="form-select" required>
                                     <option value="">Select Role...</option>
                                     <option value="admin">Admin</option>
                                     <option value="technician">Technician</option>
                                     <option value="department_admin">Department Admin</option>
                                 </select>
+                            </div>
+                            <div class="col-md-12 mb-3" id="departmentField" style="display: none;">
+                                <label class="form-label">Department/Office <span class="text-danger">*</span></label>
+                                <select name="department" id="departmentSelect" class="form-select">
+                                    <option value="">Select Department/Office</option>
+                                    <?php 
+                                    foreach ($allDepartments as $deptName) {
+                                        echo '<option value="' . htmlspecialchars($deptName) . '">' . htmlspecialchars($deptName) . '</option>';
+                                    }
+                                    ?>
+                                </select>
+                                <small class="form-text text-muted">Select the department/office this admin will manage</small>
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label">Password <span class="text-danger">*</span></label>
@@ -411,6 +491,59 @@ $totalUsers = array_sum($roleCounts);
                     this.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
                 });
             });
+            
+            // Show/hide department field based on role selection
+            const roleSelect = document.getElementById('roleSelect');
+            const departmentField = document.getElementById('departmentField');
+            const departmentSelect = document.getElementById('departmentSelect');
+            
+            if (roleSelect && departmentField && departmentSelect) {
+                roleSelect.addEventListener('change', function() {
+                    const selectedRole = this.value;
+                    if (selectedRole === 'department_admin') {
+                        departmentField.style.display = 'block';
+                        departmentSelect.setAttribute('required', 'required');
+                    } else {
+                        departmentField.style.display = 'none';
+                        departmentSelect.removeAttribute('required');
+                        departmentSelect.value = '';
+                    }
+                });
+            }
+            
+            // Form validation before submit
+            const addAdminForm = document.querySelector('#addAdminModal form');
+            if (addAdminForm) {
+                addAdminForm.addEventListener('submit', function(e) {
+                    const role = roleSelect ? roleSelect.value : '';
+                    const department = departmentSelect ? departmentSelect.value : '';
+                    
+                    if (role === 'department_admin' && !department) {
+                        e.preventDefault();
+                        alert('Please select a department/office for the Department Admin role!');
+                        departmentField.style.display = 'block';
+                        departmentSelect.focus();
+                        return false;
+                    }
+                });
+            }
+            
+            // Reset form when modal is closed
+            const addAdminModal = document.getElementById('addAdminModal');
+            if (addAdminModal) {
+                addAdminModal.addEventListener('hidden.bs.modal', function() {
+                    if (addAdminForm) {
+                        addAdminForm.reset();
+                    }
+                    if (departmentField) {
+                        departmentField.style.display = 'none';
+                    }
+                    if (departmentSelect) {
+                        departmentSelect.removeAttribute('required');
+                        departmentSelect.value = '';
+                    }
+                });
+            }
         });
     </script>
     <script>

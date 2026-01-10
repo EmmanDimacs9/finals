@@ -22,11 +22,34 @@ $createTableQuery = "CREATE TABLE IF NOT EXISTS `requests` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci";
 $conn->query($createTableQuery);
 
-// ✅ Stats
-$totalRequests = $conn->query("SELECT COUNT(*) AS count FROM requests")->fetch_assoc()['count'] ?? 0;
-$pendingRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Pending'")->fetch_assoc()['count'] ?? 0;
-$completedRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Approved'")->fetch_assoc()['count'] ?? 0;
-$activityLogs = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
+// ✅ Get current user ID to filter data
+$current_user_id = $_SESSION['user_id'] ?? 0;
+
+// ✅ Stats - Filter by current user_id
+$totalRequestsStmt = $conn->prepare("SELECT COUNT(*) AS count FROM requests WHERE user_id = ?");
+$totalRequestsStmt->bind_param("i", $current_user_id);
+$totalRequestsStmt->execute();
+$totalRequests = $totalRequestsStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$totalRequestsStmt->close();
+
+$pendingRequestsStmt = $conn->prepare("SELECT COUNT(*) AS count FROM requests WHERE user_id = ? AND status='Pending'");
+$pendingRequestsStmt->bind_param("i", $current_user_id);
+$pendingRequestsStmt->execute();
+$pendingRequests = $pendingRequestsStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$pendingRequestsStmt->close();
+
+$completedRequestsStmt = $conn->prepare("SELECT COUNT(*) AS count FROM requests WHERE user_id = ? AND status='Approved'");
+$completedRequestsStmt->bind_param("i", $current_user_id);
+$completedRequestsStmt->execute();
+$completedRequests = $completedRequestsStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$completedRequestsStmt->close();
+
+$activityLogsStmt = $conn->prepare("SELECT COUNT(*) AS count FROM logs WHERE user = ?");
+$current_user_name = $_SESSION['user_name'] ?? '';
+$activityLogsStmt->bind_param("s", $current_user_name);
+$activityLogsStmt->execute();
+$activityLogs = $activityLogsStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$activityLogsStmt->close();
 
 // ✅ Date Filter (for Analytics) - Using prepared statements to prevent SQL injection
 $startDate = $_GET['start_date'] ?? '';
@@ -45,6 +68,11 @@ $analyticsQuery = "SELECT form_type, COUNT(*) as count,
 $conditions = [];
 $params = [];
 $types = '';
+
+// ✅ Filter by current user_id
+$conditions[] = "user_id = ?";
+$params[] = $current_user_id;
+$types .= 'i';
 
 $conditions[] = "form_type IN ($formPlaceholders)";
 $params = array_merge($params, $allowedForms);
@@ -258,7 +286,11 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                             </div>
 
                             <?php 
-                            $rejectedRequests = $conn->query("SELECT COUNT(*) AS count FROM requests WHERE status='Rejected'")->fetch_assoc()['count'] ?? 0;
+                            $rejectedRequestsStmt = $conn->prepare("SELECT COUNT(*) AS count FROM requests WHERE user_id = ? AND status='Rejected'");
+                            $rejectedRequestsStmt->bind_param("i", $current_user_id);
+                            $rejectedRequestsStmt->execute();
+                            $rejectedRequests = $rejectedRequestsStmt->get_result()->fetch_assoc()['count'] ?? 0;
+                            $rejectedRequestsStmt->close();
                             ?>
                             <div class="mb-3">
                                 <div class="d-flex justify-content-between align-items-center mb-2">

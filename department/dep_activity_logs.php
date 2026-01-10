@@ -5,29 +5,51 @@ require_once '../includes/db.php';
 // ✅ Check user login
 requireLogin();
 
-// ✅ Clear all activity logs
+// ✅ Clear all activity logs for current user only
 if (isset($_GET['clear_logs']) && $_GET['clear_logs'] === '1') {
-    $conn->query("DELETE FROM logs");
+    $current_user_name = $_SESSION['user_name'] ?? '';
+    if (!empty($current_user_name)) {
+        $clearStmt = $conn->prepare("DELETE FROM logs WHERE user = ?");
+        $clearStmt->bind_param("s", $current_user_name);
+        $clearStmt->execute();
+        $clearStmt->close();
+    }
     header("Location: dep_activity_logs.php?cleared=1");
     exit;
 }
 
-// ✅ Fetch all logs with pagination (including service requests)
+// ✅ Get current user information for filtering
+$current_user_id = $_SESSION['user_id'] ?? 0;
+$current_user_name = $_SESSION['user_name'] ?? '';
+
+// ✅ Fetch all logs with pagination (including service requests) - Filtered by current user
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
-// Get total count from logs table
-$totalLogsCount = $conn->query("SELECT COUNT(*) AS count FROM logs")->fetch_assoc()['count'] ?? 0;
+// Get total count from logs table - Filtered by current user name
+$totalLogsCountStmt = $conn->prepare("SELECT COUNT(*) AS count FROM logs WHERE user = ?");
+$totalLogsCountStmt->bind_param("s", $current_user_name);
+$totalLogsCountStmt->execute();
+$totalLogsCount = $totalLogsCountStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$totalLogsCountStmt->close();
 
-// Get total count from service_requests table
-$totalServiceRequestsCount = $conn->query("SELECT COUNT(*) AS count FROM service_requests")->fetch_assoc()['count'] ?? 0;
+// Get total count from service_requests table - Filtered by current user_id
+$totalServiceRequestsCountStmt = $conn->prepare("SELECT COUNT(*) AS count FROM service_requests WHERE user_id = ?");
+$totalServiceRequestsCountStmt->bind_param("i", $current_user_id);
+$totalServiceRequestsCountStmt->execute();
+$totalServiceRequestsCount = $totalServiceRequestsCountStmt->get_result()->fetch_assoc()['count'] ?? 0;
+$totalServiceRequestsCountStmt->close();
 
 // Total combined count
 $totalLogs = $totalLogsCount + $totalServiceRequestsCount;
 $totalPages = ceil($totalLogs / $limit);
 
-// Fetch logs and service requests, combine and sort by date
+// Fetch logs and service requests, combine and sort by date - Filtered by current user
+// Note: Using sanitized integers for LIMIT/OFFSET since they can't be parameterized in UNION subquery
+$limit_sanitized = (int)$limit;
+$offset_sanitized = (int)$offset;
+
 $logsQuery = "
     SELECT * FROM (
         SELECT 
@@ -37,6 +59,7 @@ $logsQuery = "
             DATE_FORMAT(date, '%Y-%m-%d %H:%i:%s') as log_date,
             'log' as source_type
         FROM logs
+        WHERE user = ?
         
         UNION ALL
         
@@ -48,12 +71,16 @@ $logsQuery = "
             'service_request' as source_type
         FROM service_requests sr
         LEFT JOIN users u ON sr.user_id = u.id
+        WHERE sr.user_id = ?
     ) AS combined_logs
     ORDER BY log_date DESC
-    LIMIT $limit OFFSET $offset
+    LIMIT {$limit_sanitized} OFFSET {$offset_sanitized}
 ";
 
-$logs = $conn->query($logsQuery);
+$logsStmt = $conn->prepare($logsQuery);
+$logsStmt->bind_param("si", $current_user_name, $current_user_id);
+$logsStmt->execute();
+$logs = $logsStmt->get_result();
 
 // ✅ Include your forms (modals)
 include '../PDFS/PreventiveMaintenancePlan/preventiveForm.php';

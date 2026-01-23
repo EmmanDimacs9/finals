@@ -118,9 +118,12 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
             <?php
             // Fetch completed service requests that haven't been surveyed yet
             $user_id = $_SESSION['user_id'] ?? 0;
-            $completedRequestsQuery = "SELECT sr.*, 
+            $completedRequestsQuery = "SELECT 
+                sr.*,
+                tech.full_name AS technician_name,
                 (SELECT COUNT(*) FROM service_surveys WHERE service_request_id = sr.id) as survey_count
-                FROM service_requests sr 
+                FROM service_requests sr
+                LEFT JOIN users tech ON sr.technician_id = tech.id
                 WHERE sr.user_id = ? AND sr.status = 'Completed' 
                 AND NOT EXISTS (SELECT 1 FROM service_surveys WHERE service_request_id = sr.id AND user_id = ?)
                 ORDER BY sr.completed_at DESC";
@@ -148,7 +151,9 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                             <div class="col-md-6">
                                 <p><strong>Equipment:</strong> <?= htmlspecialchars($request['equipment']) ?></p>
                                 <p><strong>Location:</strong> <?= htmlspecialchars($request['location']) ?></p>
-                                <p><strong>Technician:</strong> <?= htmlspecialchars($request['technician_id'] ? 'Technician ID: ' . $request['technician_id'] : 'N/A') ?></p>
+                                <p><strong>Technician:</strong>
+                                    <?= htmlspecialchars(!empty($request['technician_name']) ? $request['technician_name'] : ($request['technician_id'] ? 'Technician ID: ' . $request['technician_id'] : 'N/A')) ?>
+                                </p>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Service Description:</strong></p>

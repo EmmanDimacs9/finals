@@ -580,10 +580,6 @@ if ($maintenanceTableExists) {
                             </div>
                         </div>
                         
-                        <div class="mb-3">
-                            <label class="form-label">Estimated Cost</label>
-                            <input type="number" name="cost" class="form-control" step="0.01" min="0" value="0" placeholder="0.00">
-                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

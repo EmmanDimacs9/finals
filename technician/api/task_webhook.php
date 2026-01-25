@@ -163,9 +163,17 @@ try {
             ensureMaintenanceColumns($conn);
 
             $query = "
-                SELECT mr.*, u.full_name as assigned_to_name
+                SELECT 
+                    mr.*, 
+                    u.full_name as assigned_to_name,
+                    r.form_data as request_form_data,
+                    r.user_id as request_user_id,
+                    ru.full_name as client_name,
+                    ru.email as client_email
                 FROM maintenance_records mr
                 LEFT JOIN users u ON mr.technician_id = u.id
+                LEFT JOIN requests r ON mr.request_id = r.id
+                LEFT JOIN users ru ON r.user_id = ru.id
                 WHERE mr.technician_id = ?
                 ORDER BY mr.created_at DESC
             ";
@@ -187,6 +195,18 @@ try {
                 } else {
                     $row['status'] = 'pending';
                 }
+                
+                // Extract request form data if available
+                if (!empty($row['request_form_data'])) {
+                    $formData = json_decode($row['request_form_data'], true);
+                    if (is_array($formData)) {
+                        $row['office'] = $formData['office'] ?? null;
+                        $row['location'] = $formData['location'] ?? null;
+                        $row['requirements'] = $formData['requirements'] ?? null;
+                        $row['ict_srf_no'] = $formData['ict_srf_no'] ?? null;
+                    }
+                }
+                
                 $records[] = $row;
             }
 
@@ -613,7 +633,24 @@ try {
                     $notifStmt->close();
                     
                     // Send notification to department (if notifications are available)
-                    if ($requestData && function_exists('notifyDeptAdminRequestStatus')) {
+                    if ($requestData && function_exists('notifyDeptServiceRequestCompleted')) {
+                        try {
+                            require_once '../../includes/notifications.php';
+                            notifyDeptServiceRequestCompleted(
+                                $request_id,
+                                $requestData['equipment'] ?? 'Service Request',
+                                $requestData['location'] ?? 'N/A',
+                                $accomplishment ?? '',
+                                $requestData['email'],
+                                $requestData['client_name'] ?? 'Department User',
+                                $requestData['ict_srf_no'] ?? ''
+                            );
+                        } catch (Exception $e) {
+                            // Log but don't fail the request
+                            error_log("Notification error: " . $e->getMessage());
+                        }
+                    } elseif ($requestData && function_exists('notifyDeptAdminRequestStatus')) {
+                        // Fallback to old notification function
                         try {
                             notifyDeptAdminRequestStatus(
                                 $request_id,

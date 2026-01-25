@@ -1035,6 +1035,16 @@ function createTaskElement(task) {
 
 // ---------------- MAINTENANCE ----------------
 function loadMaintenanceByStatus(status) {
+    // Don't show maintenance cards in pending - they duplicate service requests
+    if (status === 'pending') {
+        // Remove any existing maintenance cards from pending column
+        const pendingContainer = document.getElementById('pending-tasks');
+        if (pendingContainer) {
+            pendingContainer.querySelectorAll('[data-maintenance-id]').forEach(el => el.remove());
+        }
+        return Promise.resolve();
+    }
+    
     return fetch('api/task_webhook.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
@@ -1062,8 +1072,6 @@ function renderMaintenance(status, records) {
 function createMaintenanceElement(record) {
     const startDate = record.start_date ? new Date(record.start_date).toLocaleDateString() : 'N/A';
     const endDate = record.end_date ? new Date(record.end_date).toLocaleDateString() : 'N/A';
-    const costValue = record.cost ? parseFloat(record.cost) : 0;
-    const formattedCost = costValue.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const equipmentName = record.equipment_type ? escapeHtml(record.equipment_type) : 'Maintenance Task';
     const descriptionBlock = record.description
         ? `<div class="mb-2"><strong><i class="fas fa-clipboard-list"></i> Notes:</strong> ${escapeHtml(record.description)}</div>`
@@ -1097,12 +1105,37 @@ function createMaintenanceElement(record) {
             <div class="mb-2">
                 <strong><i class="fas fa-clock"></i> Processing Time:</strong> ${escapeHtml(record.processing_time)}
             </div>` : ''}
+            ${record.client_name ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-user"></i> Client:</strong> ${escapeHtml(record.client_name)}
+            </div>
+            ` : ''}
+            ${record.office ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-building"></i> Office:</strong> ${escapeHtml(record.office)}
+            </div>
+            ` : ''}
+            ${record.location ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-map-marker-alt"></i> Location:</strong> ${escapeHtml(record.location)}
+            </div>
+            ` : ''}
+            ${record.requirements ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-clipboard-list"></i> Requirements:</strong><br>
+                <span class="text-muted small">${escapeHtml(record.requirements)}</span>
+            </div>
+            ` : ''}
+            ${record.ict_srf_no ? `
+            <div class="mb-2">
+                <strong><i class="fas fa-tag"></i> ICT SRF No:</strong> ${escapeHtml(record.ict_srf_no)}
+            </div>
+            ` : ''}
             ${descriptionBlock}
         </div>
 
         <div class="task-meta">
             <div><i class="fas fa-calendar"></i> ${startDate} → ${endDate}</div>
-            <div><i class="fas fa-coins"></i> ₱${formattedCost}</div>
             ${timelineInfo || ''}
         </div>
 
@@ -1111,7 +1144,10 @@ function createMaintenanceElement(record) {
             <button class="btn btn-sm btn-primary w-100" onclick="acceptMaintenanceRequest(${record.id})">
                 <i class="fas fa-check"></i> Accept Request
             </button>` : record.status === 'completed' ? `
-            <button class="btn btn-sm btn-success w-100" onclick="deleteMaintenance(${record.id})">
+            <div class="mt-3 d-grid gap-2">
+                <span class="badge bg-success mb-2"><i class="fas fa-check"></i> Completed</span>
+            </div>
+            <button class="btn btn-sm btn-success w-100 mt-2" onclick="deleteMaintenance(${record.id})">
                 <i class="fas fa-trash"></i> Remove
             </button>` : `
             <button class="btn btn-sm btn-warning w-100 mb-2" onclick="openMaintenanceObserveModal(${record.id})">
@@ -1320,6 +1356,7 @@ function createServiceRequestElement(request) {
     const surveyLatestAt = request.survey_latest_at ? new Date(request.survey_latest_at).toLocaleString() : null;
     const surveyLatestComment = request.survey_latest_comment ? escapeHtml(request.survey_latest_comment) : '';
     const timelineInfo = buildServiceRequestTimeline(request);
+    const timeTakenLabel = buildServiceRequestTimeTaken(request);
     
     return `
     <div class="task-card service-request-card ${statusClass}" data-service-request-id="${request.id}" data-card-type="service_request" data-created-date="${request.created_at}">
@@ -1374,14 +1411,13 @@ function createServiceRequestElement(request) {
             ` : ''}
         </div>
         
-        <div class="task-meta">
-            <small class="text-muted">
-                <i class="fas fa-calendar-alt"></i> ${createdDate} ${createdTime}
-            </small>
-            ${timelineInfo}
-        </div>
-        
         ${request.status !== 'completed' ? `
+            <div class="task-meta">
+                <small class="text-muted">
+                    <i class="fas fa-calendar-alt"></i> ${createdDate} ${createdTime}
+                </small>
+                ${timelineInfo}
+            </div>
             <div class="task-actions mt-2">
                 ${isPending
                     ? `<button class="btn btn-sm btn-primary w-100" onclick="acceptServiceRequest(${request.id})">
@@ -1402,57 +1438,65 @@ function createServiceRequestElement(request) {
                     : ''}
             </div>
         ` : `
-            <div class="mt-3 d-grid gap-2">
-                <span class="badge bg-success mb-2"><i class="fas fa-check"></i> Completed</span>
-                ${request.accomplishment ? `
-                    <div class="mt-2">
-                        <small class="text-muted text-uppercase fw-bold">Work Done</small>
-                        <p class="small text-muted mb-0">${escapeHtml(request.accomplishment)}</p>
-                    </div>
+            <hr style="margin: 1rem 0; border-top: 1px solid #dee2e6;">
+            <div class="task-meta">
+                ${request.completed_at ? `
+                <small class="text-muted d-block mb-2">
+                    <i class="fas fa-calendar-alt"></i> ${new Date(request.completed_at).toLocaleString()}
+                </small>
                 ` : ''}
-                ${surveyCount > 0 ? `
-                    <div class="feedback-card mt-3 p-3 clickable-feedback" onclick="viewFeedbackPreview(${request.id})" style="cursor: pointer; border: 2px solid #198754; border-radius: 8px; background: linear-gradient(135deg, #d1e7dd 0%, #ffffff 100%);">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <strong><i class="fas fa-star text-warning"></i> Department Rating & Feedback</strong>
-                            ${surveyAverage ? `<span class="badge bg-warning text-dark" style="font-size: 1rem; padding: 0.5rem 0.75rem;">
-                                <i class="fas fa-star"></i> ${surveyAverage}/5.0
-                            </span>` : ''}
-                        </div>
-                        <div class="mb-2">
-                            <div class="d-flex align-items-center mb-1">
-                                <i class="fas fa-chart-line text-success me-2"></i>
-                                <strong>Average Rating:</strong>
-                                <span class="badge bg-success ms-2">${surveyAverage}/5.0</span>
-                            </div>
-                            <div class="d-flex align-items-center">
-                                <i class="fas fa-users text-success me-2"></i>
-                                <strong>Total Responses:</strong>
-                                <span class="badge bg-success ms-2">${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}</span>
-                            </div>
-                        </div>
-                        ${surveyLatestComment ? `
-                            <div class="mt-2 p-2 bg-light rounded">
-                                <strong><i class="fas fa-comment text-success"></i> Latest Comment:</strong>
-                                <p class="text-muted small mb-1 mt-1">${surveyLatestComment}</p>
-                            </div>
-                        ` : ''}
-                        ${surveyLatestAt ? `<small class="text-muted d-block mt-2"><i class="fas fa-clock"></i> Submitted: ${surveyLatestAt}</small>` : ''}
-                        <div class="mt-2">
-                            <span class="badge bg-success">
-                                <i class="fas fa-eye"></i> Click to view detailed ratings
-                            </span>
-                        </div>
-                    </div>
-                ` : `
-                    <div class="alert alert-info mt-3 mb-0 py-2">
-                        <i class="fas fa-clipboard-check"></i> Awaiting department survey feedback. 
-                        <br><small>The department can submit their evaluation at <strong>checklist.php</strong></small>
-                    </div>
-                `}
-                <button class="btn btn-success btn-sm" onclick="deleteServiceRequest(${request.id})">
-                    <i class="fas fa-trash"></i> Remove
-                </button>
+                ${timeTakenLabel ? `
+                <small class="text-muted d-block mb-3">
+                    <i class="fas fa-stopwatch"></i> Time taken: ${escapeHtml(timeTakenLabel)}
+                </small>
+                ` : ''}
             </div>
+            <div class="w-100 mb-3" style="background-color: #198754; color: white; padding: 0.75rem; border-radius: 4px; text-align: center; font-weight: 600;">
+                <i class="fas fa-check"></i> Completed
+            </div>
+            ${request.accomplishment ? `
+                <div class="mt-3 mb-3">
+                    <div style="color: #495057; font-weight: 700; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.5px; margin-bottom: 4px;">WORK DONE</div>
+                    <p class="small text-muted mb-0" style="color: #6c757d;">${escapeHtml(request.accomplishment)}</p>
+                </div>
+            ` : ''}
+            ${surveyCount > 0 ? `
+                <div class="feedback-card mt-3 p-3 clickable-feedback" onclick="viewFeedbackPreview(${request.id})" style="cursor: pointer; border-radius: 8px; background-color: #fff9c4; border: 1px solid #f0e68c;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong><i class="fas fa-star text-warning"></i> Department Rating & Feedback</strong>
+                        ${surveyAverage ? `<span class="badge bg-warning text-dark" style="font-size: 1rem; padding: 0.5rem 0.75rem;">
+                            <i class="fas fa-star"></i> ${surveyAverage}/5.0
+                        </span>` : ''}
+                    </div>
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="fas fa-chart-line text-success me-2"></i>
+                            <strong>Average Rating:</strong>
+                            <span class="badge bg-success ms-2">${surveyAverage}/5.0</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-users text-success me-2"></i>
+                            <strong>Total Responses:</strong>
+                            <span class="badge bg-success ms-2">${surveyCount} ${surveyCount === 1 ? 'response' : 'responses'}</span>
+                        </div>
+                    </div>
+                    ${surveyLatestComment ? `
+                        <div class="mt-2">
+                            <strong><i class="fas fa-comment text-success"></i> Latest Comment:</strong>
+                            <p class="text-muted small mb-1 mt-1">${surveyLatestComment}</p>
+                        </div>
+                    ` : ''}
+                    ${surveyLatestAt ? `<small class="text-muted d-block mt-2"><i class="fas fa-clock"></i> Submitted: ${surveyLatestAt}</small>` : ''}
+                    <div class="mt-2">
+                        <span class="badge bg-success" style="border: 1px solid #155724;">
+                            <i class="fas fa-info-circle"></i> Click to view detailed ratings
+                        </span>
+                    </div>
+                </div>
+            ` : ''}
+            <button class="btn btn-success btn-sm w-100 mt-3" onclick="deleteServiceRequest(${request.id})" style="background-color: #198754; border-color: #155724; font-weight: 600; text-transform: uppercase;">
+                <i class="fas fa-trash"></i> Remove
+            </button>
         `}
     </div>`;
 }
@@ -1904,6 +1948,67 @@ function formatDurationFromMs(ms) {
     return parts.join(' ');
 }
 
+function formatDurationHumanReadable(ms) {
+    if (!ms || ms <= 0) return '0 seconds';
+    
+    const totalSeconds = Math.floor(ms / 1000);
+    
+    // If less than 60 seconds, show in seconds
+    if (totalSeconds < 60) {
+        return `${totalSeconds} ${totalSeconds === 1 ? 'second' : 'seconds'}`;
+    }
+    
+    // For 60 seconds or more, convert to minutes and show in minutes/hours/days
+    const totalMinutes = Math.floor(ms / 60000);
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+    
+    const parts = [];
+    if (days > 0) {
+        parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+    }
+    if (hours > 0) {
+        parts.push(`${hours} ${hours === 1 ? 'hour' : 'hours'}`);
+    }
+    if (minutes > 0) {
+        parts.push(`${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`);
+    }
+    
+    // Format with "and" for better readability
+    if (parts.length === 0) {
+        return '0 minutes';
+    } else if (parts.length === 1) {
+        return parts[0];
+    } else if (parts.length === 2) {
+        return `${parts[0]} and ${parts[1]}`;
+    } else {
+        // For 3+ parts, use commas and "and" before the last one
+        return parts.slice(0, -1).join(', ') + ', and ' + parts[parts.length - 1];
+    }
+}
+
+function buildServiceRequestTimeTaken(request) {
+    if (request.status !== 'completed') {
+        return '';
+    }
+
+    // Prefer actual duration from created_at to completed_at when both are available
+    if (request.completed_at && request.created_at) {
+        const start = new Date(request.created_at);
+        const end = new Date(request.completed_at);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end.getTime() >= start.getTime()) {
+            let durationLabel = formatDurationHumanReadable(end.getTime() - start.getTime());
+            if (durationLabel) {
+                return durationLabel;
+            }
+        }
+    }
+
+    // Fallback to configured processing_time if present
+    return request.processing_time || '';
+}
+
 function buildServiceRequestTimeline(request) {
     if (!request.processing_deadline) {
         return '';
@@ -1946,8 +2051,32 @@ function buildServiceRequestTimeline(request) {
 }
 
 function buildMaintenanceTimeline(record) {
-    if (!record.processing_deadline) {
+    if (!record.processing_deadline && record.status !== 'completed') {
         return '';
+    }
+
+    // Compute actual time taken for completed maintenance (from started_at/start_date/created_at to completed_at)
+    let timeTakenHtml = '';
+    const startSource = record.started_at || record.start_date || record.created_at;
+    if (record.status === 'completed' && record.completed_at && startSource) {
+        const start = new Date(startSource);
+        const end = new Date(record.completed_at);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end.getTime() >= start.getTime()) {
+            const diffMs = end.getTime() - start.getTime();
+            let durationLabel = formatDurationHumanReadable(diffMs);
+            // Fallback: if duration label is empty, use configured processing_time as a best-effort display
+            if (!durationLabel && record.processing_time) {
+                durationLabel = record.processing_time;
+            }
+            if (durationLabel) {
+                timeTakenHtml = `<small class="text-muted d-block"><i class="fas fa-stopwatch"></i> Time taken: ${durationLabel}</small>`;
+            }
+        }
+    }
+
+    if (!record.processing_deadline) {
+        // If there's no SLA deadline, just show time taken (for completed items)
+        return timeTakenHtml;
     }
 
     const deadline = new Date(record.processing_deadline);
@@ -1961,6 +2090,7 @@ function buildMaintenanceTimeline(record) {
                     Completed
                 </div>
                 <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(record.processing_deadline)}</small>
+                ${timeTakenHtml}
             `;
         }
         const onTime = parseInt(record.completed_within_sla, 10) === 1;
@@ -1970,6 +2100,7 @@ function buildMaintenanceTimeline(record) {
                 ${onTime ? 'Completed on time' : 'Completed after deadline'}
             </div>
             <small class="text-muted d-block"><i class="fas fa-hourglass-end"></i> Deadline: ${formatDateTimeLocal(record.processing_deadline)}</small>
+            ${timeTakenHtml}
         `;
     }
 
@@ -2566,6 +2697,19 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
     font-weight: 600;
 }
 
+.maintenance-card .maintenance-info strong i {
+    color: #b8860b;
+}
+
+.maintenance-card.completed .maintenance-info strong {
+    color: #4c51bf;
+    font-weight: 600;
+}
+
+.maintenance-card.completed .maintenance-info strong i {
+    color: #4c51bf;
+}
+
 /* Task Header */
 .task-header { 
     display: flex;
@@ -2708,8 +2852,21 @@ function escapeHtml(txt){const div=document.createElement('div');div.textContent
 
 /* Service Request Info */
 .service-request-info strong {
-    color: #4f6edb;
+    color: #212529;
     font-weight: 600;
+}
+
+.service-request-info strong i {
+    color: #212529;
+}
+
+.service-request-card.completed .service-request-info strong {
+    color: #4c51bf;
+    font-weight: 600;
+}
+
+.service-request-card.completed .service-request-info strong i {
+    color: #4c51bf;
 }
 
 .feedback-card {

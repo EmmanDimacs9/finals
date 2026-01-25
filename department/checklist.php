@@ -118,30 +118,57 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
             <?php
             // Fetch completed service requests that haven't been surveyed yet
             $user_id = $_SESSION['user_id'] ?? 0;
-            $completedRequestsQuery = "SELECT 
-                sr.*,
-                tech.full_name AS technician_name,
-                (SELECT COUNT(*) FROM service_surveys WHERE service_request_id = sr.id) as survey_count
-                FROM service_requests sr
-                LEFT JOIN users tech ON sr.technician_id = tech.id
-                WHERE sr.user_id = ? AND sr.status = 'Completed' 
-                AND NOT EXISTS (SELECT 1 FROM service_surveys WHERE service_request_id = sr.id AND user_id = ?)
-                ORDER BY sr.completed_at DESC";
+            
+            // First, let's check what surveys exist for this user
+            $surveyCheckQuery = "SELECT service_request_id FROM service_surveys WHERE user_id = ?";
+            $surveyStmt = $conn->prepare($surveyCheckQuery);
+            $surveyStmt->bind_param("i", $user_id);
+            $surveyStmt->execute();
+            $surveyResult = $surveyStmt->get_result();
+            $surveyedIds = [];
+            while ($row = $surveyResult->fetch_assoc()) {
+                $surveyedIds[] = $row['service_request_id'];
+            }
+            $surveyStmt->close();
+            
+            // Query to find completed service requests for this user
+            $completedRequestsQuery = "
+                SELECT sr.*, 
+                    (SELECT COUNT(*) FROM service_surveys WHERE service_request_id = sr.id) as survey_count
+                FROM service_requests sr 
+                WHERE sr.user_id = ?
+                AND sr.status = 'Completed'
+                ORDER BY 
+                    CASE WHEN sr.completed_at IS NOT NULL THEN sr.completed_at ELSE sr.updated_at END DESC";
+            
             $stmt = $conn->prepare($completedRequestsQuery);
-            $stmt->bind_param("ii", $user_id, $user_id);
-            $stmt->execute();
-            $completedRequests = $stmt->get_result();
-            $stmt->close();
+            if (!$stmt) {
+                error_log("Checklist query error: " . $conn->error);
+                $completedRequestsArray = [];
+            } else {
+                $stmt->bind_param("i", $user_id);
+                $stmt->execute();
+                $allCompleted = $stmt->get_result();
+                
+                // Filter out already surveyed requests
+                $completedRequestsArray = [];
+                while ($row = $allCompleted->fetch_assoc()) {
+                    if (!in_array($row['id'], $surveyedIds)) {
+                        $completedRequestsArray[] = $row;
+                    }
+                }
+                $stmt->close();
+            }
             ?>
-
-            <?php if ($completedRequests->num_rows > 0): ?>
-                <?php while ($request = $completedRequests->fetch_assoc()): ?>
+            
+            <?php if (count($completedRequestsArray) > 0): ?>
+                <?php foreach ($completedRequestsArray as $request): ?>
                 <div class="card mb-4">
                     <div class="card-header bg-danger text-white">
                         <div class="d-flex justify-content-between align-items-center">
                             <div>
                                 <h5 class="mb-0"><i class="fas fa-check-circle"></i> Service Request #<?= $request['id'] ?></h5>
-                                <small>Completed on <?= date('F d, Y g:i A', strtotime($request['completed_at'])) ?></small>
+                                <small>Completed on <?= $request['completed_at'] ? date('F d, Y g:i A', strtotime($request['completed_at'])) : 'Date not available' ?></small>
                             </div>
                             <span class="badge bg-light text-dark"><?= $request['support_level'] ?? 'N/A' ?> Support</span>
                         </div>
@@ -151,9 +178,7 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                             <div class="col-md-6">
                                 <p><strong>Equipment:</strong> <?= htmlspecialchars($request['equipment']) ?></p>
                                 <p><strong>Location:</strong> <?= htmlspecialchars($request['location']) ?></p>
-                                <p><strong>Technician:</strong>
-                                    <?= htmlspecialchars(!empty($request['technician_name']) ? $request['technician_name'] : ($request['technician_id'] ? 'Technician ID: ' . $request['technician_id'] : 'N/A')) ?>
-                                </p>
+                                <p><strong>Technician:</strong> <?= htmlspecialchars($request['technician_id'] ? 'Technician ID: ' . $request['technician_id'] : 'N/A') ?></p>
                             </div>
                             <div class="col-md-6">
                                 <p><strong>Service Description:</strong></p>
@@ -168,7 +193,7 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                         <hr>
 
                         <h5 class="section-title mb-3">ICT Service Survey Form</h5>
-                        <p class="text-muted mb-3">Please evaluate the service provided (1 = Very Dissatisfied, 5 = Very Satisfied)</p>
+                        <p class="text-muted mb-3">Please evaluate the service provided</p>
                         
                         <form class="service-survey-form" data-request-id="<?= $request['id'] ?>">
                             <div class="table-responsive">
@@ -178,7 +203,7 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                                             <th class="text-start">Evaluation Statements</th>
                                             <th>5<br><small>Very Satisfied</small></th>
                                             <th>4<br><small>Satisfied</small></th>
-                                            <th>3<br><small>Neutral</small></th>
+                                            <th>3<br><small>Neither Satisfied nor Dissatisfied</small></th>
                                             <th>2<br><small>Dissatisfied</small></th>
                                             <th>1<br><small>Very Dissatisfied</small></th>
                                         </tr>
@@ -225,13 +250,41 @@ include '../PDFS/PostingRequestForm/PostingRequestForm.php';
                         </form>
                     </div>
                 </div>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
             <?php else: ?>
+                <?php
+                // Check if user has any service requests at all (for debugging)
+                $allRequestsQuery = "SELECT COUNT(*) as total, 
+                    SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress
+                    FROM service_requests WHERE user_id = ?";
+                $allStmt = $conn->prepare($allRequestsQuery);
+                $allStmt->bind_param("i", $user_id);
+                $allStmt->execute();
+                $allResult = $allStmt->get_result();
+                $allData = $allResult->fetch_assoc();
+                $allStmt->close();
+                ?>
                 <div class="card">
                     <div class="card-body text-center py-5">
                         <i class="fas fa-clipboard-check fa-3x text-muted mb-3"></i>
                         <h5 class="text-muted">No completed services to evaluate</h5>
                         <p class="text-muted">Completed service requests will appear here for evaluation.</p>
+                        <?php if (isset($allData) && $allData['total'] > 0): ?>
+                            <div class="mt-3 p-3 bg-light rounded">
+                                <small class="text-muted">
+                                    <strong>Your Service Requests:</strong><br>
+                                    Total: <?= $allData['total'] ?> | 
+                                    Completed: <?= $allData['completed'] ?> | 
+                                    Pending: <?= $allData['pending'] ?> | 
+                                    In Progress: <?= $allData['in_progress'] ?>
+                                    <?php if ($allData['completed'] > 0): ?>
+                                        <br><span class="text-info"><i class="fas fa-info-circle"></i> You have <?= $allData['completed'] ?> completed request(s). If they're not showing, they may have already been evaluated.</span>
+                                    <?php endif; ?>
+                                </small>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             <?php endif; ?>
